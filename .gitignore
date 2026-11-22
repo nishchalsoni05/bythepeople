@@ -22,3 +22,6 @@ backend/data/
 app/build/
 app/.dart_tool/
 app/ios/Pods/
+# Local environment (keep real values out of git)
+app/.env
+backend/uploads/
