@@ -1,0 +1,24 @@
+# Planning documents stay local
+docs/
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Backend
+backend/node_modules/
+backend/data/
+
+# App
+app/build/
+app/.dart_tool/
+app/ios/Pods/
