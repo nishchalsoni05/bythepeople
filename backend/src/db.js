@@ -23,7 +23,15 @@ CREATE TABLE IF NOT EXISTS users (
   home_lat REAL, home_lng REAL,
   last_lat REAL, last_lng REAL, last_ts INTEGER,
   hue INTEGER NOT NULL DEFAULT 200,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  role TEXT NOT NULL DEFAULT 'citizen',
+  org_name TEXT, reg_no TEXT,
+  verified INTEGER NOT NULL DEFAULT 1,
+  verify_status TEXT NOT NULL DEFAULT 'verified',
+  verify_note TEXT,
+  about TEXT, needs TEXT NOT NULL DEFAULT '[]', address TEXT,
+  department_name TEXT, politician_id INTEGER, designation TEXT, city_id INTEGER,
+  avatar_url TEXT, cover_url TEXT
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
@@ -67,7 +75,13 @@ CREATE TABLE IF NOT EXISTS issues (
   scheduled_at INTEGER,
   resolved_at INTEGER,
   closed_at INTEGER,
-  resolution_note TEXT
+  resolution_note TEXT,
+  authority_status TEXT NOT NULL DEFAULT 'open',
+  assigned_to TEXT,
+  escalated INTEGER NOT NULL DEFAULT 0,
+  escalated_by INTEGER, escalation_note TEXT,
+  share_count INTEGER NOT NULL DEFAULT 0,
+  media TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status);
 CREATE INDEX IF NOT EXISTS idx_issues_pol ON issues(politician_id);
@@ -108,7 +122,10 @@ CREATE TABLE IF NOT EXISTS status_history (
   status TEXT NOT NULL,
   note TEXT,
   user_id INTEGER,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  media TEXT NOT NULL DEFAULT '[]',
+  actor_role TEXT,
+  kind TEXT NOT NULL DEFAULT 'status'
 );
 CREATE TABLE IF NOT EXISTS notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,13 +135,118 @@ CREATE TABLE IF NOT EXISTS notifications (
   body TEXT,
   issue_id INTEGER,
   read INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  ref_type TEXT, ref_id INTEGER
 );
 CREATE TABLE IF NOT EXISTS user_badges (
   user_id INTEGER NOT NULL REFERENCES users(id),
   badge_key TEXT NOT NULL,
   earned_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, badge_key)
+);
+CREATE TABLE IF NOT EXISTS likes (
+  target_type TEXT NOT NULL,
+  target_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (target_type, target_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  target_type TEXT NOT NULL CHECK (target_type IN ('issue','gathering','donation')),
+  target_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  media TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_comments_target ON comments(target_type, target_id);
+CREATE TABLE IF NOT EXISTS clubs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'other',
+  hue INTEGER NOT NULL DEFAULT 150,
+  owner_id INTEGER NOT NULL REFERENCES users(id),
+  avatar_url TEXT, cover_url TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS club_members (
+  club_id INTEGER NOT NULL REFERENCES clubs(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  joined_at INTEGER NOT NULL,
+  PRIMARY KEY (club_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS gatherings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL,
+  lat REAL NOT NULL, lng REAL NOT NULL,
+  address TEXT,
+  start_at INTEGER NOT NULL,
+  end_at INTEGER,
+  status TEXT NOT NULL DEFAULT 'upcoming',
+  organizer_id INTEGER NOT NULL REFERENCES users(id),
+  club_id INTEGER REFERENCES clubs(id),
+  capacity INTEGER,
+  media TEXT NOT NULL DEFAULT '[]',
+  impact_note TEXT,
+  completed_at INTEGER,
+  reminded INTEGER NOT NULL DEFAULT 0,
+  share_count INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gatherings_start ON gatherings(start_at);
+CREATE TABLE IF NOT EXISTS gathering_rsvps (
+  gathering_id INTEGER NOT NULL REFERENCES gatherings(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at INTEGER NOT NULL,
+  checked_in_at INTEGER,
+  PRIMARY KEY (gathering_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS gathering_rsvp_awards (
+  gathering_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (gathering_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS gathering_votes (
+  gathering_id INTEGER NOT NULL REFERENCES gatherings(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (gathering_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS donations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  quantity TEXT NOT NULL DEFAULT '',
+  servings INTEGER,
+  veg TEXT NOT NULL DEFAULT 'na',
+  prepared_at INTEGER,
+  expires_at INTEGER NOT NULL,
+  lat REAL NOT NULL, lng REAL NOT NULL,
+  address TEXT, pickup_note TEXT,
+  media TEXT NOT NULL DEFAULT '[]',
+  hygiene_ack INTEGER NOT NULL DEFAULT 0,
+  donor_id INTEGER NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'available',
+  claimed_by INTEGER REFERENCES users(id),
+  claimed_at INTEGER, eta_at INTEGER, lock_expires_at INTEGER,
+  picked_up_at INTEGER, distributed_at INTEGER,
+  dist_note TEXT, dist_beneficiaries INTEGER, dist_media TEXT,
+  share_count INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
+CREATE TABLE IF NOT EXISTS donation_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  donation_id INTEGER NOT NULL REFERENCES donations(id),
+  status TEXT NOT NULL,
+  note TEXT,
+  user_id INTEGER,
+  created_at INTEGER NOT NULL
 );
 `;
 
