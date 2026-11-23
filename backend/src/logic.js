@@ -1,8 +1,11 @@
 import { db, tx } from './db.js';
 import {
-  CONFIG, CATEGORIES, RANKS, POINTS, BADGES, SEVERITY_WEIGHT,
+  CONFIG, CATEGORIES, RANKS, POINTS, BADGES, SEVERITY_WEIGHT, authorityFor,
 } from './config.js';
 import { now, DAY, haversineKm, ApiError, num } from './util.js';
+import {
+  parseJson, cleanMedia, publicUrl, userRef, userRefFromRow, likedBy,
+} from './common.js';
 
 // ---------- severity ----------
 export function severityOf(supports, linked, createdAt, category) {
@@ -83,6 +86,13 @@ function badgeStats(userId) {
     closedHelped: one(
       "SELECT COUNT(*) c FROM volunteers v JOIN issues i ON i.id=v.issue_id WHERE v.user_id=? AND i.status='closed'", userId),
     points: one('SELECT points c FROM users WHERE id=?', userId),
+    checkins: one('SELECT COUNT(*) c FROM gathering_rsvps WHERE user_id=? AND checked_in_at IS NOT NULL', userId),
+    greenCheckins: one(
+      `SELECT COUNT(*) c FROM gathering_rsvps r JOIN gatherings g ON g.id=r.gathering_id
+       WHERE r.user_id=? AND r.checked_in_at IS NOT NULL AND g.type IN ('plantation','cleanup')`, userId),
+    donated: one("SELECT COUNT(*) c FROM donations WHERE donor_id=? AND status='distributed'", userId),
+    foodDonated: one("SELECT COUNT(*) c FROM donations WHERE donor_id=? AND status='distributed' AND kind='food'", userId),
+    comments: one('SELECT COUNT(*) c FROM comments WHERE user_id=?', userId),
   };
 }
 
@@ -96,6 +106,11 @@ const BADGE_RULES = {
   truth_seeker: (s) => s.verifies >= 3,
   hero: (s) => s.closedHelped >= 1,
   best_citizen: (s) => s.points >= 300,
+  volunteer_heart: (s) => s.checkins >= 1,
+  green_thumb: (s) => s.greenCheckins >= 3,
+  giver: (s) => s.donated >= 1,
+  feeder: (s) => s.foodDonated >= 5,
+  voice: (s) => s.comments >= 5,
 };
 
 // Adds points, evaluates badges, returns a "rewards" payload for celebration UI.
@@ -133,14 +148,18 @@ export function mergeRewards(a, b) {
 }
 
 // ---------- notifications ----------
-export function notify(userId, type, title, body, issueId = null) {
-  db.prepare('INSERT INTO notifications (user_id,type,title,body,issue_id,read,created_at) VALUES (?,?,?,?,?,0,?)')
-    .run(userId, type, title, body, issueId, now());
+export function notify(userId, type, title, body, issueId = null, refType = null, refId = null) {
+  if (issueId != null && refType == null) { refType = 'issue'; refId = issueId; }
+  db.prepare('INSERT INTO notifications (user_id,type,title,body,issue_id,read,created_at,ref_type,ref_id) VALUES (?,?,?,?,?,0,?,?,?)')
+    .run(userId, type, title, body, issueId, now(), refType, refId);
 }
 
-export function addHistory(issueId, status, note, userId = null) {
-  db.prepare('INSERT INTO status_history (issue_id,status,note,user_id,created_at) VALUES (?,?,?,?,?)')
-    .run(issueId, status, note, userId, now());
+/** Timeline entry. kind: status | authority | neta | system (system when nobody acted). */
+export function addHistory(issueId, status, note, userId = null, extra = {}) {
+  const actor = userId ? db.prepare('SELECT role FROM users WHERE id=?').get(userId) : null;
+  const kind = extra.kind || (userId ? 'status' : 'system');
+  db.prepare('INSERT INTO status_history (issue_id,status,note,user_id,created_at,media,actor_role,kind) VALUES (?,?,?,?,?,?,?,?)')
+    .run(issueId, status, note, userId, now(), JSON.stringify(extra.media || []), actor?.role || null, kind);
 }
 
 // ---------- geography ----------
@@ -185,7 +204,7 @@ export function resolveArea(lat, lng) {
   const ward = wardAt(lat, lng);
   if (ward) {
     const c = chainFromWard(ward);
-    return { covered: true, ward: brief(c.ward), city: brief(c.city), state: brief(c.state), region: brief(c.region) };
+    return { covered: true, ward: brief(c.ward), city: brief(c.city), state: brief(c.state), region: brief(c.region), defaultScope: 'city', label: c.ward.name, nearestCity: null, distanceKm: 0 };
   }
   const cities = db.prepare("SELECT * FROM areas WHERE kind='city'").all();
   let best = null;
@@ -194,10 +213,26 @@ export function resolveArea(lat, lng) {
     const d = haversineKm(lat, lng, c.lat, c.lng);
     if (d <= c.radius_km && d < bestD) { best = c; bestD = d; }
   }
-  if (!best) return { covered: false, ward: null, city: null, state: null, region: null };
-  const state = areaById(best.parent_id);
-  const region = areaById(state.parent_id);
-  return { covered: true, ward: null, city: brief(best), state: brief(state), region: brief(region) };
+  if (best) {
+    const state = areaById(best.parent_id);
+    const region = areaById(state.parent_id);
+    return { covered: true, ward: null, city: brief(best), state: brief(state), region: brief(region), defaultScope: 'city', label: best.name, nearestCity: null, distanceKm: 0 };
+  }
+  // Outside every city/ward: never an empty state. Fall back to the state of the nearest city
+  // (e.g. a town 45 km from Raipur gets "Chhattisgarh"), or to everywhere if nothing is near.
+  let near = null;
+  let nearD = Infinity;
+  for (const c of cities) {
+    const d = haversineKm(lat, lng, c.lat, c.lng);
+    if (d < nearD) { near = c; nearD = d; }
+  }
+  const dist = near ? Math.round(nearD * 10) / 10 : null;
+  if (near && nearD <= CONFIG.stateFallbackKm) {
+    const state = areaById(near.parent_id);
+    const region = areaById(state.parent_id);
+    return { covered: false, ward: null, city: null, state: brief(state), region: brief(region), defaultScope: 'state', label: state.name, nearestCity: brief(near), distanceKm: dist };
+  }
+  return { covered: false, ward: null, city: null, state: null, region: null, defaultScope: 'all', label: 'All regions', nearestCity: near ? brief(near) : null, distanceKm: dist };
 }
 
 /**
@@ -217,6 +252,16 @@ export function resolveScope(query, user, loc = null) {
     const r = at ? resolveArea(at.lat, at.lng) : null;
     const hit = r && r[scope];
     area = hit ? areaById(hit.id) : null;
+    if (!area) {
+      // Client is outside coverage for the requested level: widen (city -> state -> region -> all)
+      // instead of returning an empty feed.
+      const order = ['city', 'state', 'region'];
+      for (const wider of order.slice(order.indexOf(scope) + 1)) {
+        const h = r && r[wider];
+        if (h) return { scope: wider, area: areaById(h.id), requested: scope };
+      }
+      return { scope: 'all', area: null, requested: scope };
+    }
   }
   return { scope, area };
 }
@@ -279,7 +324,10 @@ SELECT i.*,
   (SELECT COUNT(*) FROM supports s WHERE s.issue_id=i.id) AS support_count,
   (SELECT COUNT(*) FROM linked_reports l WHERE l.issue_id=i.id) AS linked_count,
   (SELECT COUNT(*) FROM volunteers v WHERE v.issue_id=i.id) AS volunteer_count,
-  u.name AS reporter_name, u.hue AS reporter_hue,
+  (SELECT COUNT(*) FROM likes lk WHERE lk.target_type='issue' AND lk.target_id=i.id) AS like_count,
+  (SELECT COUNT(*) FROM comments cm WHERE cm.target_type='issue' AND cm.target_id=i.id) AS comment_count,
+  u.name AS reporter_name, u.hue AS reporter_hue, u.role AS reporter_role,
+  u.org_name AS reporter_org, u.verified AS reporter_verified,
   p.name AS pol_name, p.party AS pol_party, p.constituency AS pol_constituency, p.level AS pol_level, p.hue AS pol_hue,
   aw.name AS ward_name, ac.name AS city_name, ast.name AS state_name, ar.name AS region_name
 FROM issues i
@@ -309,6 +357,43 @@ export function phaseOf(status) {
   return 'event';
 }
 
+export function timelineFor(issueId) {
+  return db.prepare(`SELECT h.id, h.status, h.note, h.created_at, h.media, h.actor_role, h.kind, u.name AS user_name
+      FROM status_history h LEFT JOIN users u ON u.id=h.user_id WHERE h.issue_id=? ORDER BY h.created_at, h.id`).all(issueId)
+    .map((h) => ({
+      id: h.id, status: h.status, note: h.note, createdAt: h.created_at, userName: h.user_name,
+      media: parseJson(h.media, []), actorRole: h.actor_role, kind: h.kind || 'status',
+    }));
+}
+
+const AUTH_LABEL = { open: 'Open', acknowledged: 'Acknowledged', in_progress: 'In progress', resolved: 'Resolved' };
+
+export const authorityStatusOf = (r) => (r.status === 'closed' ? 'resolved' : r.authority_status || 'open');
+
+export function issueShareText(r) {
+  const a = authorityFor(r.city_name, r.category);
+  const st = AUTH_LABEL[authorityStatusOf(r)];
+  return `${r.title} in ${r.city_name || 'our city'}. Status: ${st}. ${a.handle} please act on this. `
+    + `${r.support_count} neighbours support it. Track it: ${publicUrl('issue', r.id)}`;
+}
+
+function socialFields(r) {
+  const supports = r.support_count;
+  return {
+    likeCount: r.like_count, commentCount: r.comment_count, shareCount: r.share_count,
+    engagement: r.like_count + 2 * supports + r.comment_count + r.share_count,
+    media: parseJson(r.media, []),
+    authority: authorityFor(r.city_name, r.category),
+    authorityStatus: authorityStatusOf(r),
+    assignedTo: r.assigned_to || null,
+    escalated: !!r.escalated,
+    escalatedBy: r.escalated ? userRef(r.escalated_by) : null,
+    escalationNote: r.escalated ? r.escalation_note || '' : null,
+    shareText: issueShareText(r),
+    publicUrl: publicUrl('issue', r.id),
+  };
+}
+
 export function issueView(r, user, loc = null, detail = false) {
   const sev = severityOf(r.support_count, r.linked_count, r.created_at, r.category);
   const cat = CATEGORIES[r.category] || CATEGORIES.other;
@@ -323,7 +408,10 @@ export function issueView(r, user, loc = null, detail = false) {
     threshold: CONFIG.eventThreshold,
     createdAt: r.created_at, eventAt: r.event_at, scheduledAt: r.scheduled_at,
     resolvedAt: r.resolved_at, closedAt: r.closed_at, resolutionNote: r.resolution_note,
-    reporter: { id: r.reporter_id, name: r.reporter_name, hue: r.reporter_hue },
+    reporter: userRefFromRow({
+      id: r.reporter_id, name: r.reporter_name, hue: r.reporter_hue, role: r.reporter_role,
+      org_name: r.reporter_org, verified: r.reporter_verified,
+    }),
     politician: r.politician_id ? {
       id: r.politician_id, name: r.pol_name, party: r.pol_party,
       constituency: r.pol_constituency, level: r.pol_level, hue: r.pol_hue,
@@ -336,6 +424,7 @@ export function issueView(r, user, loc = null, detail = false) {
     },
     supporters: avatarsFor('supports', r.id),
     volunteers: avatarsFor('volunteers', r.id),
+    ...socialFields(r),
   };
   if (loc) {
     view.distanceKm = round1(haversineKm(loc.lat, loc.lng, r.lat, r.lng));
@@ -345,11 +434,10 @@ export function issueView(r, user, loc = null, detail = false) {
     view.supportedByMe = !!db.prepare('SELECT 1 x FROM supports WHERE issue_id=? AND user_id=?').get(r.id, user.id);
     view.volunteeringByMe = !!db.prepare('SELECT 1 x FROM volunteers WHERE issue_id=? AND user_id=?').get(r.id, user.id);
     view.reportedByMe = r.reporter_id === user.id;
-  }
+    view.likedByMe = likedBy('issue', r.id, user);
+  } else view.likedByMe = false;
   if (detail) {
-    view.timeline = db.prepare(`SELECT h.id, h.status, h.note, h.created_at, u.name AS user_name
-      FROM status_history h LEFT JOIN users u ON u.id=h.user_id WHERE h.issue_id=? ORDER BY h.created_at, h.id`).all(r.id)
-      .map((h) => ({ id: h.id, status: h.status, note: h.note, createdAt: h.created_at, userName: h.user_name }));
+    view.timeline = timelineFor(r.id);
     view.supporters = avatarsFor('supports', r.id, 50);
     view.volunteers = avatarsFor('volunteers', r.id, 50);
     const v = db.prepare('SELECT approve, COUNT(*) c FROM verifications WHERE issue_id=? AND round=? GROUP BY approve').all(r.id, r.round);
@@ -400,11 +488,15 @@ export function createIssue(user, body) {
   const category = CATEGORIES[body.category] ? body.category : null;
   if (!category) throw new ApiError(400, 'BAD_CATEGORY', 'Pick a category');
   const pin = parseLoc(body.lat, body.lng, 'issue location');
+  const media = cleanMedia(body.media);
+  if (user.role === 'admin') {
+    throw new ApiError(403, 'FORBIDDEN', 'Authority accounts resolve issues instead of reporting them. Use a citizen account to report.');
+  }
   const me = parseLoc(body.userLat ?? body.lat, body.userLng ?? body.lng, 'current location');
   touchLocation(user, me.lat, me.lng);
   const radius = radiusFor(category);
   const d = haversineKm(me.lat, me.lng, pin.lat, pin.lng);
-  if (d > radius) {
+  if (d > radius && user.role !== 'neta') {
     throw new ApiError(403, 'OUT_OF_RANGE',
       `The pin is ${d.toFixed(1)} km from you. You can only report within ${radius} km.`,
       { distanceKm: round1(d), radiusKm: radius });
@@ -431,10 +523,11 @@ export function createIssue(user, body) {
     }
     const pol = route.politician;
     const ch = route.chain;
-    const info = db.prepare(`INSERT INTO issues (title,description,category,lat,lng,address,reporter_id,politician_id,ward_id,city_id,state_id,region_id,status,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'open', ?)`)
+    const info = db.prepare(`INSERT INTO issues (title,description,category,lat,lng,address,reporter_id,politician_id,ward_id,city_id,state_id,region_id,status,created_at,media)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'open', ?, ?)`)
       .run(title, String(body.description || '').trim(), category, pin.lat, pin.lng,
-        body.address ? String(body.address) : null, user.id, pol.id, ch.ward.id, ch.city.id, ch.state.id, ch.region.id, now());
+        body.address ? String(body.address) : null, user.id, pol.id, ch.ward.id, ch.city.id, ch.state.id, ch.region.id, now(),
+        JSON.stringify(media));
     const id = Number(info.lastInsertRowid);
     db.prepare('INSERT INTO supports (issue_id,user_id,created_at) VALUES (?,?,?)').run(id, user.id, now());
     addHistory(id, 'open', 'Issue reported', user.id);
@@ -588,7 +681,7 @@ export function verifyEvent(user, id, body) {
     let outcome = 'pending';
     if (yes >= CONFIG.verifyNeeded) {
       outcome = 'closed';
-      db.prepare("UPDATE issues SET status='closed', closed_at=? WHERE id=?").run(now(), id);
+      db.prepare("UPDATE issues SET status='closed', closed_at=?, authority_status='resolved' WHERE id=?").run(now(), id);
       addHistory(id, 'closed', 'Resolution verified by neighbours');
       const vols = db.prepare('SELECT user_id FROM volunteers WHERE issue_id=?').all(id);
       for (const v of vols) {
@@ -600,7 +693,7 @@ export function verifyEvent(user, id, body) {
       notify(issue.reporter_id, 'event_closed', 'Your issue is resolved', `"${issue.title}" was verified as fixed`, id);
     } else if (no >= CONFIG.verifyNeeded) {
       outcome = 'reopened';
-      db.prepare("UPDATE issues SET status='in_progress', round=round+1, resolved_at=NULL WHERE id=?").run(id);
+      db.prepare("UPDATE issues SET status='in_progress', round=round+1, resolved_at=NULL, authority_status='in_progress' WHERE id=?").run(id);
       addHistory(id, 'in_progress', 'Neighbours say the work is not finished. Back in progress');
       const vols = db.prepare('SELECT user_id FROM volunteers WHERE issue_id=?').all(id);
       for (const v of vols) notify(v.user_id, 'event_reopened', 'Resolution rejected', `Neighbours say "${issue.title}" still needs work`, id);
@@ -695,6 +788,12 @@ export function userProfile(user) {
   const s = badgeStats(user.id);
   return {
     id: user.id, name: user.name, email: user.email, hue: user.hue,
+    role: user.role || 'citizen', orgName: user.org_name || null, regNo: user.reg_no || null,
+    verified: !!user.verified, verificationStatus: user.verify_status || 'verified',
+    about: user.about || '', needs: parseJson(user.needs, []), address: user.address || '',
+    departmentName: user.department_name || null, politicianId: user.politician_id || null,
+    designation: user.designation || null, cityId: user.city_id || null,
+    avatarUrl: user.avatar_url || null, coverUrl: user.cover_url || null,
     points: user.points, rank,
     volunteer: !!user.volunteer, alertRadiusKm: user.alert_radius_km,
     home: user.home_lat != null ? { lat: user.home_lat, lng: user.home_lng } : null,
