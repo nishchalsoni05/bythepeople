@@ -9,6 +9,7 @@ import 'package:by_the_people/presentation/widgets/map.dart' show MapItem;
 import 'package:by_the_people/presentation/features/gatherings/welfare_common.dart';
 import 'package:by_the_people/presentation/providers/gathering_providers.dart';
 import 'package:by_the_people/presentation/widgets/skeleton.dart';
+import 'package:by_the_people/presentation/widgets/stacked_card.dart';
 import 'package:by_the_people/presentation/widgets/ui.dart';
 
 /// Look of each gathering type: icon and a two-colour gradient.
@@ -19,16 +20,20 @@ class GatheringStyle {
   const GatheringStyle(this.icon, this.a, this.b, this.label);
 }
 
+// Monochrome: every event type shares one grey chip; the icon and label tell them apart.
+const _typeFill = C.muted;
+const _typeMark = Color(0xFF8A8A90);
+
 const gatheringTypes = <String, GatheringStyle>{
-  'plantation': GatheringStyle(Icons.park_rounded, Color(0xFFD9F0E3), Color(0xFFA6D9B6), 'Plantation'),
-  'animal_care': GatheringStyle(Icons.pets_rounded, Color(0xFFFFE0BD), Color(0xFFFFB98A), 'Animal care'),
-  'shelter': GatheringStyle(Icons.home_rounded, Color(0xFFD8D0F0), Color(0xFFA99BD6), 'Shelter'),
-  'marathon': GatheringStyle(Icons.directions_run_rounded, Color(0xFFD6ECFA), Color(0xFF8CC8F0), 'Run'),
-  'health': GatheringStyle(Icons.health_and_safety_rounded, Color(0xFFFAD3D8), Color(0xFFF4B8C0), 'Health'),
-  'cleanup': GatheringStyle(Icons.cleaning_services_rounded, Color(0xFFE4EEB8), Color(0xFFC8DB7A), 'Clean-up'),
-  'blood': GatheringStyle(Icons.bloodtype_rounded, Color(0xFFFFC9BD), Color(0xFFFF8E78), 'Blood'),
-  'food_drive': GatheringStyle(Icons.restaurant_rounded, Color(0xFFFFE6A8), Color(0xFFFFC48A), 'Food drive'),
-  'other': GatheringStyle(Icons.volunteer_activism_rounded, Color(0xFFE6E4DE), Color(0xFFCFCBC0), 'Other'),
+  'plantation': GatheringStyle(Icons.park_rounded, _typeFill, _typeMark, 'Plantation'),
+  'animal_care': GatheringStyle(Icons.pets_rounded, _typeFill, _typeMark, 'Animal care'),
+  'shelter': GatheringStyle(Icons.home_rounded, _typeFill, _typeMark, 'Shelter'),
+  'marathon': GatheringStyle(Icons.directions_run_rounded, _typeFill, _typeMark, 'Run'),
+  'health': GatheringStyle(Icons.health_and_safety_rounded, _typeFill, _typeMark, 'Health'),
+  'cleanup': GatheringStyle(Icons.cleaning_services_rounded, _typeFill, _typeMark, 'Clean-up'),
+  'blood': GatheringStyle(Icons.bloodtype_rounded, _typeFill, _typeMark, 'Blood'),
+  'food_drive': GatheringStyle(Icons.restaurant_rounded, _typeFill, _typeMark, 'Food drive'),
+  'other': GatheringStyle(Icons.volunteer_activism_rounded, _typeFill, _typeMark, 'Other'),
 };
 
 GatheringStyle styleOf(String type) => gatheringTypes[type] ?? gatheringTypes['other']!;
@@ -81,7 +86,7 @@ class VoteBar extends StatelessWidget {
       children: [
         HatchedProgress(
           value: g.voteCount / needed,
-          fill: const Color(0xFF7D6BC0),
+          fill: C.inkSoft,
           track: C.muted,
           hatch: const Color(0x55FFFFFF),
           height: 6,
@@ -225,7 +230,7 @@ class GatheringPrimaryButton extends ConsumerWidget {
       child: Container(
         height: h,
         padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(color: onTap == null ? C.muted : bg, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: onTap == null ? C.muted : bg, borderRadius: BorderRadius.circular(16)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -243,10 +248,10 @@ class GatheringPrimaryButton extends ConsumerWidget {
     if (g.isCompleted) return btn('Completed', Icons.check_circle_rounded);
     if (g.isProposed) {
       return g.votedByMe
-          ? btn('Voted', Icons.how_to_vote_rounded, bg: C.lime, fg: C.ink, onTap: () => toggleVote(context, ref, g))
+          ? btn('Voted', Icons.how_to_vote_rounded, bg: C.muted, fg: C.ink, onTap: () => toggleVote(context, ref, g))
           : btn('Vote to back it', Icons.how_to_vote_outlined, onTap: () => toggleVote(context, ref, g));
     }
-    if (g.goingByMe) return btn('Going', Icons.check_rounded, bg: C.lime, fg: C.ink, onTap: () => toggleRsvp(context, ref, g));
+    if (g.goingByMe) return btn('Going', Icons.check_rounded, bg: C.muted, fg: C.ink, onTap: () => toggleRsvp(context, ref, g));
     if (g.isFull) return btn('Full', Icons.event_busy_rounded);
     return btn('RSVP', Icons.event_available_rounded, onTap: () => toggleRsvp(context, ref, g));
   }
@@ -285,9 +290,16 @@ class GatheringCard extends ConsumerWidget {
         : g.isOngoing
         ? const CoverBadge('Happening now', icon: Icons.circle, bg: C.ink, fg: C.lime)
         : CoverBadge(g.typeLabel, icon: s.icon);
-    return FeedCardShell(
+    // Event card is a hero surface: image on top, title and meta tight below, stacked behind.
+    return Opacity(
+      opacity: g.isCancelled ? 0.6 : 1,
+      child: StackedCard(
+      layers: 2,
+      offset: 6,
+      inset: 10,
+      tint: const Color(0xFFEDEDF0),
       onTap: onTap,
-      dim: g.isCancelled,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -299,8 +311,8 @@ class GatheringCard extends ConsumerWidget {
               children: [
                 PersonLine(g.organizer, size: 22, sub: g.club != null ? 'Hosted by ${g.club!.name}' : null),
                 const SizedBox(height: 10),
-                Text(g.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: ui(16, w: 600, h: 1.3)),
-                const SizedBox(height: 8),
+                Text(g.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: titleStyle()),
+                const SizedBox(height: 6),
                 Wrap(
                   spacing: 14,
                   runSpacing: 4,
@@ -317,7 +329,7 @@ class GatheringCard extends ConsumerWidget {
           ),
           const Padding(padding: EdgeInsets.only(top: 6), child: Divider(height: 1, color: C.line)),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
+            padding: const EdgeInsets.fromLTRB(14, 2, 14, 10),
             child: Row(
               children: [
                 if (people.isNotEmpty) ...[AvatarStack(people: people, total: g.goingCount, size: 22), const SizedBox(width: 12)],
@@ -334,6 +346,7 @@ class GatheringCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

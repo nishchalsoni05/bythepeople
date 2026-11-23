@@ -116,7 +116,7 @@ class _CreateGatheringSheetState extends ConsumerState<CreateGatheringSheet> {
     setState(() => _busy = false);
     if (r != null) {
       Navigator.of(context).pop();
-      cheer(context, r.rewards, _proposed ? 'Campaign proposed. Rally votes to take it live.' : 'Gathering created', confetti: !_proposed);
+      cheer(context, r.rewards, _proposed ? 'Campaign proposed. Rally votes to take it live.' : 'Event created', confetti: !_proposed);
     }
   }
 

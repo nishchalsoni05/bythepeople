@@ -129,7 +129,7 @@ class ClubDetailScreen extends ConsumerWidget {
           data: (d) {
             final c = d.club;
             return ListView(
-              padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, pad.bottom + 40),
+              padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, pad.bottom + 110),
               children: [
                 WHeader(title: c.name),
                 const SizedBox(height: 16),

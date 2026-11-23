@@ -96,7 +96,7 @@ class _GatheringsScreenState extends ConsumerState<GatheringsScreen> with Pollin
     if (_map && showList) {
       return Column(
         children: [
-          WelfareHeaderBox(title: 'Gatherings', actions: actions, tabs: _tabs, tabIndex: _tab, onTab: (i) => setState(() => _tab = i)),
+          WelfareHeaderBox(title: 'Events', actions: actions, tabs: _tabs, tabIndex: _tab, onTab: (i) => setState(() => _tab = i)),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 84),
@@ -125,7 +125,7 @@ class _GatheringsScreenState extends ConsumerState<GatheringsScreen> with Pollin
       },
       child: CustomScrollView(
         slivers: [
-          WelfareHeaderSliver(title: 'Gatherings', actions: actions, tabs: _tabs, tabIndex: _tab, onTab: (i) => setState(() => _tab = i)),
+          WelfareHeaderSliver(title: 'Events', actions: actions, tabs: _tabs, tabIndex: _tab, onTab: (i) => setState(() => _tab = i)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
             sliver: SliverList(
@@ -157,8 +157,20 @@ class _GatheringsScreenState extends ConsumerState<GatheringsScreen> with Pollin
                               : 'Be the one who starts it. Tap + to create a gathering.',
                         );
                       }
+                      final going = items.fold<int>(0, (a, x) => a + x.goingCount);
+                      final mine = items.where((x) => x.goingByMe).length;
                       return Column(
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Row(children: [
+                              Expanded(child: WelfareStat(value: items.length, label: _tab == 1 ? 'Campaigns' : 'Events', icon: Icons.event_outlined)),
+                              const SizedBox(width: 10),
+                              Expanded(child: WelfareStat(value: going, label: 'Attending', icon: Icons.groups_rounded)),
+                              const SizedBox(width: 10),
+                              Expanded(child: WelfareStat(value: mine, label: 'Your RSVPs', icon: Icons.check_circle_outline_rounded)),
+                            ]),
+                          ),
                           for (var i = 0; i < items.length; i++)
                             Enter(
                               key: ValueKey('${items[i].id}-$_tab-$_when-$_sort-$_type'),

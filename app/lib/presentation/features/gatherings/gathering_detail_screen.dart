@@ -99,7 +99,7 @@ class _GatheringDetailScreenState extends ConsumerState<GatheringDetailScreen> w
     if (ok != true || !mounted) return;
     await _run(() async {
       final r = await guarded(context, () => ref.read(gatheringActionsProvider).cancel(g.id));
-      if (r != null && mounted) showToast(context, 'Gathering cancelled', icon: Icons.event_busy_rounded);
+      if (r != null && mounted) showToast(context, 'Event cancelled', icon: Icons.event_busy_rounded);
     });
   }
 
@@ -117,7 +117,7 @@ class _GatheringDetailScreenState extends ConsumerState<GatheringDetailScreen> w
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: WHeader(title: 'Gathering'),
+                  child: WHeader(title: 'Event'),
                 ),
                 ErrorState(error: e, onRetry: () => ref.invalidate(gatheringProvider(widget.id))),
               ],
@@ -144,10 +144,10 @@ class _GatheringDetailScreenState extends ConsumerState<GatheringDetailScreen> w
         await ref.read(gatheringProvider(g.id).future);
       },
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16, pad.top + 4, 16, pad.bottom + 40),
+        padding: EdgeInsets.fromLTRB(16, pad.top + 4, 16, pad.bottom + 110),
         children: [
           WHeader(
-            title: 'Gathering',
+            title: 'Event',
             trailing: g.isProposed ? const Tag('Campaign proposal', icon: Icons.how_to_vote_rounded) : null,
           ),
           const SizedBox(height: 8),
@@ -203,7 +203,7 @@ class _GatheringDetailScreenState extends ConsumerState<GatheringDetailScreen> w
               onPressed: () => openInMaps(g.lat, g.lng, label: g.title, directions: true),
               icon: const Icon(Icons.directions_rounded, size: 18),
               label: const Text('Directions'),
-              style: OutlinedButton.styleFrom(foregroundColor: C.ink, side: const BorderSide(color: C.line), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              style: OutlinedButton.styleFrom(foregroundColor: C.ink, side: const BorderSide(color: C.line), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
             ),
           ),
           const SizedBox(height: 12),

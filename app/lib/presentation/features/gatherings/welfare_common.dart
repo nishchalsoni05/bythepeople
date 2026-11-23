@@ -158,8 +158,8 @@ class Tag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -189,13 +189,13 @@ class WCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     margin: margin,
     padding: padding,
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
+    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
     child: child,
   );
 }
 
-class StatTile extends StatelessWidget {
-  const StatTile({super.key, required this.value, required this.label, this.icon, this.bg = C.surface});
+class WelfareStat extends StatelessWidget {
+  const WelfareStat({super.key, required this.value, required this.label, this.icon, this.bg = C.surface});
   final int value;
   final String label;
   final IconData? icon;
@@ -203,18 +203,19 @@ class StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: C.line)),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (icon != null) ...[Icon(icon, size: 16, color: C.inkSoft), const SizedBox(height: 6)],
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: RollingNumber(value, style: ui(18, w: 600)),
+            child: RollingNumber(value, style: numStyle(24)),
           ),
           const SizedBox(height: 2),
-          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: ui(11.5, color: C.inkSoft, h: 1.2)),
+          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: metaStyle().copyWith(height: 1.2)),
         ],
       ),
     );

@@ -53,7 +53,7 @@ class _FoundationsScreenState extends ConsumerState<FoundationsScreen> {
             await ref.read(foundationsProvider((_q, _need)).future);
           },
           child: ListView(
-            padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, pad.bottom + 40),
+            padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, pad.bottom + 110),
             children: [
               const WHeader(title: 'Foundations'),
               const SizedBox(height: 6),
@@ -236,7 +236,7 @@ class FoundationDetailScreen extends ConsumerWidget {
             ),
           ),
           data: (f) => ListView(
-            padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, pad.bottom + 40),
+            padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, pad.bottom + 110),
             children: [
               const WHeader(title: 'Foundation'),
               const SizedBox(height: 14),
@@ -292,15 +292,15 @@ class FoundationDetailScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: StatTile(value: f.stats.claimed, label: 'Claimed', icon: Icons.volunteer_activism_rounded),
+                    child: WelfareStat(value: f.stats.claimed, label: 'Claimed', icon: Icons.volunteer_activism_rounded),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: StatTile(value: f.stats.distributed, label: 'Distributed', icon: Icons.check_circle_outline_rounded),
+                    child: WelfareStat(value: f.stats.distributed, label: 'Distributed', icon: Icons.check_circle_outline_rounded),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: StatTile(
+                    child: WelfareStat(
                       value: f.stats.beneficiaries,
                       label: 'People helped',
                       icon: Icons.favorite_border_rounded,

@@ -21,11 +21,11 @@ class FoundationDashboardHeader extends ConsumerWidget {
       loading: () => const Skeleton(
         child: Row(
           children: [
-            Expanded(child: SkeletonBox(height: 64, radius: 12)),
+            Expanded(child: SkeletonBox(height: 88, radius: 24)),
             SizedBox(width: 8),
-            Expanded(child: SkeletonBox(height: 64, radius: 12)),
+            Expanded(child: SkeletonBox(height: 88, radius: 24)),
             SizedBox(width: 8),
-            Expanded(child: SkeletonBox(height: 64, radius: 12)),
+            Expanded(child: SkeletonBox(height: 88, radius: 24)),
           ],
         ),
       ),
@@ -36,20 +36,19 @@ class FoundationDashboardHeader extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: StatTile(
+                child: WelfareStat(
                   value: d.stats.claimed,
                   label: 'Claimed',
                   icon: Icons.volunteer_activism_rounded,
-                  bg: C.lime.withValues(alpha: 0.35),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: StatTile(value: d.stats.distributed, label: 'Distributed', icon: Icons.check_circle_outline_rounded),
+                child: WelfareStat(value: d.stats.distributed, label: 'Distributed', icon: Icons.check_circle_outline_rounded),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: StatTile(value: d.stats.beneficiaries, label: 'People helped', icon: Icons.favorite_border_rounded),
+                child: WelfareStat(value: d.stats.beneficiaries, label: 'People helped', icon: Icons.favorite_border_rounded),
               ),
             ],
           ),
@@ -80,7 +79,7 @@ class FoundationDashboardHeader extends ConsumerWidget {
                     child: Container(
                       width: 220,
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
+                      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

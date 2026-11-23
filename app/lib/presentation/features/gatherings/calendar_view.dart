@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:by_the_people/presentation/features/reminders/reminder_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:by_the_people/core/theme/tokens.dart';
@@ -26,10 +27,12 @@ const _monthNames = [
   'December',
 ];
 
+const _weekdayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 String monthKey(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}';
 String dayKey(DateTime d) => '${monthKey(d)}-${d.day.toString().padLeft(2, '0')}';
 
-/// Month grid with a dot per event type; tapping a day lists its gatherings.
+/// Weekly strip of seven day pills (dot under days with events) above the selected day's events.
 class CalendarView extends ConsumerStatefulWidget {
   const CalendarView({super.key});
   @override
@@ -37,83 +40,92 @@ class CalendarView extends ConsumerStatefulWidget {
 }
 
 class _CalendarViewState extends ConsumerState<CalendarView> {
-  late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
-  late DateTime _selected = DateTime.now();
+  late DateTime _selected = DateUtils.dateOnly(DateTime.now());
 
-  void _shift(int by) => setState(() {
-    _month = DateTime(_month.year, _month.month + by);
-    _selected = DateTime(_month.year, _month.month, 1);
-  });
+  DateTime get _weekStart => DateTime(_selected.year, _selected.month, _selected.day - (_selected.weekday - 1));
+
+  void _shiftWeek(int by) => setState(() => _selected = DateTime(_selected.year, _selected.month, _selected.day + 7 * by));
 
   @override
   Widget build(BuildContext context) {
-    final key = monthKey(_month);
-    final async = ref.watch(calendarProvider(key));
-    final days = async.asData?.value ?? const <String, List<GatheringLite>>{};
-    final first = DateTime(_month.year, _month.month, 1);
-    final lead = first.weekday - 1; // Monday first
-    final count = DateUtils.getDaysInMonth(_month.year, _month.month);
-    final rows = ((lead + count) / 7).ceil();
-    final today = DateTime.now();
+    final ws = _weekStart;
+    final week = [for (var i = 0; i < 7; i++) DateTime(ws.year, ws.month, ws.day + i)];
+    final monthKeys = {monthKey(week.first), monthKey(week.last)};
+    final asyncs = [for (final k in monthKeys) ref.watch(calendarProvider(k))];
+    final days = <String, List<GatheringLite>>{};
+    for (final a in asyncs) {
+      final v = a.asData?.value;
+      if (v != null) days.addAll(v);
+    }
+    final loading = asyncs.any((a) => a.isLoading);
+    final failed = asyncs.any((a) => a.hasError);
+    final today = DateUtils.dateOnly(DateTime.now());
     final selectedEvents = [...(days[dayKey(_selected)] ?? const <GatheringLite>[])]..sort((a, b) => a.startAt.compareTo(b.startAt));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        WCard(
-          padding: const EdgeInsets.fromLTRB(10, 12, 10, 14),
+        FlatCard(
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
           child: Column(
             children: [
               Row(
                 children: [
-                  TopBarAction(icon: Icons.chevron_left_rounded, onTap: () => _shift(-1)),
+                  TopBarAction(icon: Icons.chevron_left_rounded, onTap: () => _shiftWeek(-1)),
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
                       child: Text(
-                        '${_monthNames[_month.month - 1]} ${_month.year}',
-                        key: ValueKey(key),
+                        '${_monthNames[ws.month - 1]} ${ws.year}',
+                        key: ValueKey('${ws.year}-${ws.month}'),
                         textAlign: TextAlign.center,
-                        style: ui(17, w: 600),
+                        style: ui(15, w: 600),
                       ),
                     ),
                   ),
-                  TopBarAction(icon: Icons.chevron_right_rounded, onTap: () => _shift(1)),
+                  TopBarAction(icon: Icons.chevron_right_rounded, onTap: () => _shiftWeek(1)),
                 ],
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  for (final l in dayLetters)
-                    Expanded(
-                      child: Center(
-                        child: Text(l, style: ui(11.5, color: C.inkSoft, w: 600)),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              for (var r = 0; r < rows; r++) Row(children: [for (var c = 0; c < 7; c++) _cell(r * 7 + c - lead + 1, count, days, today)]),
-              if (async.isLoading)
+              Row(children: [for (final d in week) Expanded(child: _dayPill(d, days, today))]),
+              if (loading)
                 const Padding(
-                  padding: EdgeInsets.only(top: 8),
+                  padding: EdgeInsets.only(top: 10),
                   child: LinearProgressIndicator(minHeight: 2, color: C.ink, backgroundColor: C.muted),
                 ),
             ],
           ),
         ),
-        if (async.hasError) ErrorState(error: async.error!, onRetry: () => ref.invalidate(calendarProvider(key))),
+        if (failed)
+          ErrorState(
+            error: asyncs.firstWhere((a) => a.hasError).error!,
+            onRetry: () {
+              for (final k in monthKeys) {
+                ref.invalidate(calendarProvider(k));
+              }
+            },
+          ),
         const SizedBox(height: 18),
-        SectionTitle(
-          _selected.day == today.day && _selected.month == today.month && _selected.year == today.year
-              ? 'Today'
-              : '${_selected.day} ${_monthNames[_selected.month - 1]}',
-        ),
-        if (async.isLoading && days.isEmpty)
+        Row(children: [
+          Expanded(
+            child: SectionTitle(
+              DateUtils.isSameDay(_selected, today) ? 'Today' : '${_selected.day} ${_monthNames[_selected.month - 1]}',
+            ),
+          ),
+          TapScale(
+            onTap: () => showReminderSheet(context),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text('Set reminder', style: ui(13, color: C.ink, w: 600)),
+            ),
+          ),
+        ]),
+        if (loading && days.isEmpty)
           const RowListSkeleton(count: 2)
         else if (selectedEvents.isEmpty)
-          WCard(
-            child: Text('Nothing planned for this day. Tap + to start something.', style: ui(14, color: C.inkSoft, h: 1.4)),
+          FlatCard(
+            padding: const EdgeInsets.all(R.cardInset),
+            child: Text('Nothing planned for this day. Tap + to start something.', style: bodyStyle(color: C.inkSoft)),
           )
         else
           for (var i = 0; i < selectedEvents.length; i++) Enter(index: i, child: _EventRow(selectedEvents[i])),
@@ -121,47 +133,50 @@ class _CalendarViewState extends ConsumerState<CalendarView> {
     );
   }
 
-  Widget _cell(int day, int count, Map<String, List<GatheringLite>> days, DateTime today) {
-    if (day < 1 || day > count) return const Expanded(child: SizedBox(height: 46));
-    final d = DateTime(_month.year, _month.month, day);
+  Widget _dayPill(DateTime d, Map<String, List<GatheringLite>> days, DateTime today) {
     final events = days[dayKey(d)] ?? const <GatheringLite>[];
     final selected = DateUtils.isSameDay(d, _selected);
     final isToday = DateUtils.isSameDay(d, today);
-    final types = events.map((e) => e.type).toSet().take(3).toList();
-    return Expanded(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
       child: GestureDetector(
+        key: ValueKey('day-${d.day}'),
         behavior: HitTestBehavior.opaque,
         onTap: () => setState(() => _selected = d),
-        child: Container(
-          key: ValueKey('day-$day'),
-          height: 46,
-          margin: const EdgeInsets.all(2),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          height: 82,
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? C.ink : (isToday ? C.lime.withValues(alpha: 0.5) : Colors.transparent),
-            borderRadius: BorderRadius.circular(12),
+            color: selected ? C.ink : Colors.transparent,
+            borderRadius: BorderRadius.circular(28),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                '$day',
-                style: ui(14, color: selected ? Colors.white : C.ink, w: selected || isToday ? 600 : 500),
+                _weekdayShort[d.weekday - 1],
+                style: metaStyle(color: selected ? Colors.white70 : C.inkSoft),
               ),
-              const SizedBox(height: 3),
-              SizedBox(
-                height: 6,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final t in types)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.symmetric(horizontal: 1),
-                        decoration: BoxDecoration(color: selected ? C.lime : styleOf(t).b, shape: BoxShape.circle),
-                      ),
-                  ],
+              const SizedBox(height: 6),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? Colors.white : Colors.transparent,
+                  border: !selected && isToday ? Border.all(color: C.ink, width: 1.2) : null,
                 ),
+                child: Text('${d.day}', style: numStyle(15, color: C.ink, w: 650)),
+              ),
+              const SizedBox(height: 5),
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: events.isEmpty ? Colors.transparent : C.danger),
               ),
             ],
           ),
@@ -179,25 +194,20 @@ class _EventRow extends StatelessWidget {
     final s = styleOf(e.type);
     return TapScale(
       onTap: () => openGathering(context, e.id),
-      child: WCard(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
+      child: FlatCard(
+        margin: const EdgeInsets.only(bottom: R.unit),
+        padding: const EdgeInsets.all(R.cardInset),
         child: Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(color: C.muted, borderRadius: BorderRadius.circular(12)),
-              child: Icon(s.icon, size: 20, color: C.inkSoft),
-            ),
+            IconChip(s.icon, size: 36),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: ui(14, w: 600, h: 1.25)),
+                  Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: titleStyle()),
                   const SizedBox(height: 2),
-                  Text('${s.label} · ${fmtTime(e.startAt)}', style: ui(12.5, color: C.inkSoft)),
+                  Text('${s.label} · ${fmtTime(e.startAt)}', style: metaStyle()),
                 ],
               ),
             ),
