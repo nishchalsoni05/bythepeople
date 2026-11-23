@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:by_the_people/core/format.dart';
-import 'package:by_the_people/core/models.dart';
+import 'package:by_the_people/core/utils/format.dart';
+import 'package:by_the_people/domain/entities/models.dart';
 
 void main() {
   test('distance formatting', () {

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:by_the_people/core/device_tilt.dart';
+import 'package:by_the_people/core/sensors/device_tilt.dart';
 
 /// Gravity components for a phone held with the given pitch (0 = flat, pi/2 = upright) and roll.
 List<double> gravity({required double pitch, double roll = 0}) {

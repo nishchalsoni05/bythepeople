@@ -4,15 +4,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:by_the_people/core/models.dart';
-import 'package:by_the_people/core/state.dart';
-import 'package:by_the_people/core/tokens.dart';
-import 'package:by_the_people/core/widgets/cards.dart';
-import 'package:by_the_people/core/widgets/neta_card.dart';
-import 'package:by_the_people/core/widgets/neta_deck.dart';
-import 'package:by_the_people/core/widgets/scope_bar.dart';
-import 'package:by_the_people/core/widgets/ui.dart';
-import 'package:by_the_people/features/neta/neta_screen.dart';
+import 'package:by_the_people/domain/entities/models.dart';
+import 'package:by_the_people/presentation/providers/providers.dart';
+import 'package:by_the_people/core/theme/tokens.dart';
+import 'package:by_the_people/presentation/widgets/cards.dart';
+import 'package:by_the_people/presentation/widgets/neta_card.dart';
+import 'package:by_the_people/presentation/widgets/neta_deck.dart';
+import 'package:by_the_people/presentation/widgets/scope_bar.dart';
+import 'package:by_the_people/presentation/widgets/ui.dart';
+import 'package:by_the_people/presentation/features/neta/neta_screen.dart';
 
 /// Typical phone viewport sizes in logical points.
 const sizes = <String, Size>{
