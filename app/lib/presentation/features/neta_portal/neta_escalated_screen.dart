@@ -24,7 +24,7 @@ class NetaEscalatedScreen extends ConsumerWidget {
       child: ListView(
         padding: EdgeInsets.fromLTRB(20, pad.top + 12, 20, 140),
         children: [
-          Text('Escalated', style: ui(20, w: 650)),
+          Text('Priority', style: ui(20, w: 650)),
           const SizedBox(height: 4),
           Text('Issues you pushed to the admin portal.', style: ui(13.5, color: C.inkSoft)),
           const SizedBox(height: 16),

@@ -51,7 +51,7 @@ class _AdminQueueScreenState extends ConsumerState<AdminQueueScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(20, pad.top + 12, 20, 140),
         children: [
-          Text('Issue queue', style: ui(20, w: 650)),
+          Text('Reports', style: ui(20, w: 650)),
           const SizedBox(height: 14),
           TextField(
             controller: _search,

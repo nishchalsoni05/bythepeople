@@ -5,9 +5,13 @@ import 'package:by_the_people/domain/entities/models.dart';
 import 'package:by_the_people/presentation/providers/providers.dart';
 import 'package:by_the_people/core/theme/tokens.dart';
 import 'package:by_the_people/presentation/features/activity/activity_screen.dart';
-import 'package:by_the_people/presentation/features/neta/neta_screen.dart';
+import 'package:by_the_people/presentation/features/insights/insights_screen.dart';
+import 'package:by_the_people/presentation/features/reminders/reminders_screen.dart';
 import 'package:by_the_people/presentation/widgets/layout.dart';
+import 'package:by_the_people/presentation/features/neta/neta_screen.dart';
+import 'package:by_the_people/presentation/providers/locale_provider.dart';
 import 'package:by_the_people/presentation/widgets/sheets.dart';
+import 'package:by_the_people/presentation/widgets/stacked_card.dart';
 import 'package:by_the_people/presentation/widgets/ui.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -35,38 +39,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final r = u.rank;
     final radius = _radius ?? u.alertRadiusKm;
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, pad.top + 12, 16, 150),
+      padding: EdgeInsets.fromLTRB(16, pad.top + 12, 16, 130),
       children: [
         // identity card
-        FrostedPanel(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-          radius: 14,
+        StackedCard(
+          layers: 2,
+          offset: 6,
+          inset: 10,
           child: Column(children: [
             Row(children: [
               if (u.isCitizen || u.isFoundation) _Chip(icon: Icons.bolt_rounded, text: '${u.points} pts') else _Chip(icon: _roleIcon(u.role), text: u.roleLabel),
               const Spacer(),
               if (u.badges.isNotEmpty) _Chip(icon: Icons.emoji_events_outlined, text: '${u.badges.where((b) => b.earned).length}/${u.badges.length} badges'),
             ]),
-            const SizedBox(height: 14),
+            const SizedBox(height: R.cardInset),
             Avatar(u.asPerson, size: 64),
-            const SizedBox(height: 12),
+            const SizedBox(height: R.unit),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Flexible(child: Text(u.displayName, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: ui(20, w: 650))),
-              if (u.isFoundation && u.verified) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.verified_rounded, size: 20, color: Color(0xFF2F80ED))),
+              Flexible(child: Text(u.displayName, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: ui(20, w: 650, h: 1.25))),
+              if (u.isFoundation && u.verified) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.verified_rounded, size: 20, color: C.ink)),
             ]),
             const SizedBox(height: 2),
             Text(
               switch (u.role) {
-                'admin' => u.departmentName ?? 'Authority officer',
-                'neta' => u.designation ?? 'Neta',
+                'admin' => u.departmentName ?? 'Platform admin',
+                'neta' => u.designation ?? 'Coordinator',
                 'foundation' => u.verified ? 'Verified foundation' : 'Verification pending',
-                _ => 'Elder Scout · ${r.name}',
+                _ => 'Volunteer · ${r.name}',
               },
               textAlign: TextAlign.center,
-              style: ui(14, color: C.inkSoft, w: 650),
+              style: bodyStyle(color: C.inkSoft),
             ),
+            if (u.isFoundation) ...[
+              const SizedBox(height: R.unit),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: u.verified ? C.ink : C.muted, borderRadius: BorderRadius.circular(20)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(u.verified ? Icons.verified_rounded : Icons.hourglass_top_rounded, size: 14, color: u.verified ? Colors.white : C.inkSoft),
+                  const SizedBox(width: 5),
+                  Text(u.verified ? 'Verified' : 'Pending verification', style: ui(12.5, w: 700, color: u.verified ? Colors.white : C.inkSoft)),
+                ]),
+              ),
+            ],
             if (u.isCitizen) ...[
-              const SizedBox(height: 18),
+              const SizedBox(height: R.cardInset),
               HatchedProgress(
                 value: r.progress, fill: C.lime, track: C.muted, hatch: const Color(0x66FFFFFF), height: 30,
                 label: r.next == null ? 'Top rank reached' : '${r.nextAt! - u.points} pts to ${r.next}',
@@ -74,40 +91,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ]),
         ),
+        const SizedBox(height: R.cardInset),
+        if (u.isCitizen || u.isFoundation) ...[
+          _ImpactCard(meals: u.stats['meals'] ?? u.stats['mealsServed'] ?? u.stats['closedHelped'] ?? 0, foundation: u.isFoundation),
+          const SizedBox(height: R.unit),
+          Row(children: [
+            _Stat('${u.stats['given'] ?? u.stats['claimed'] ?? u.stats['closedHelped'] ?? 0}', u.isFoundation ? 'Claimed' : 'Items given'),
+            const SizedBox(width: R.unit),
+            _Stat('${u.stats['joins'] ?? u.stats['distributed'] ?? 0}', u.isFoundation ? 'Distributed' : 'Events joined'),
+            const SizedBox(width: R.unit),
+            _Stat('${u.badges.where((b) => b.earned).length}', 'Badges'),
+          ]),
+          const SizedBox(height: R.cardInset),
+        ],
+        _Link(
+          icon: Icons.insights_rounded,
+          label: 'Insights',
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InsightsScreen())),
+        ),
+        const SizedBox(height: R.unit),
+        _Link(
+          icon: Icons.notifications_active_outlined,
+          label: 'Reminders',
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PushedPage(title: 'Reminders', child: RemindersScreen()))),
+        ),
         if (u.isFoundation && !u.verified) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: R.cardInset),
           Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: const Color(0xFFFFF0D8), borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.all(R.cardInset),
+            decoration: BoxDecoration(color: const Color(0xFFFFF0D8), borderRadius: BorderRadius.circular(R.card)),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Icon(Icons.hourglass_top_rounded, color: C.ember),
               const SizedBox(width: 10),
-              Expanded(child: Text('An admin is reviewing your registration. You can browse donations now and claim them once verified.', style: ui(13, color: C.inkSoft, h: 1.4, w: 600))),
+              Expanded(child: Text('Our team is reviewing your registration. You can browse surplus now and claim it once you are verified.', style: ui(13, color: C.inkSoft, h: 1.4, w: 600))),
             ]),
           ),
         ],
         if (u.isCitizen) ...[
-        const SizedBox(height: 14),
-        Row(children: [
-          _Stat('${u.stats['reports'] ?? 0}', 'Reports'),
-          const SizedBox(width: 10),
-          _Stat('${u.stats['supports'] ?? 0}', 'Supports'),
-          const SizedBox(width: 10),
-          _Stat('${u.stats['joins'] ?? 0}', 'Events'),
-          const SizedBox(width: 10),
-          _Stat('${u.stats['closedHelped'] ?? 0}', 'Fixed'),
+        const SizedBox(height: R.cardInset),
+        Column(children: [
+          _Link(icon: Icons.hub_rounded, label: 'Coordinators', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PushedPage(title: 'Coordinators', child: NetaScreen())))),
+          const SizedBox(height: R.unit),
+          _Link(icon: Icons.history_rounded, label: 'My activity', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PushedPage(title: 'My activity', child: ActivityScreen())))),
         ]),
-        const SizedBox(height: 14),
-        Row(children: [
-          Expanded(child: _Link(icon: Icons.shield_moon_rounded, label: 'Leaders', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PushedPage(title: 'Leaders', child: NetaScreen()))))),
-          const SizedBox(width: 10),
-          Expanded(child: _Link(icon: Icons.history_rounded, label: 'My activity', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PushedPage(title: 'My activity', child: ActivityScreen()))))),
-        ]),
-        const SizedBox(height: 18),
+        const SizedBox(height: R.cardInset),
         // settings
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-          decoration: BoxDecoration(color: C.surface.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(R.card), border: Border.all(color: C.line)),
+        FlatCard(
+          padding: const EdgeInsets.fromLTRB(R.cardInset, R.unit, R.cardInset, R.unit),
           child: Column(children: [
             _Row(
               title: 'Volunteer mode', sub: 'Get alerted when events start near you',
@@ -118,13 +148,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const Divider(height: 1, color: C.line),
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: R.unit + 4),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Expanded(child: Text('Alert radius', style: ui(15, w: 700))),
-                  Text('${radius.round()} km', style: ui(15, w: 750)),
+                  Expanded(child: Text('Alert radius', style: titleStyle())),
+                  Text('${radius.round()} km', style: numStyle(15, w: 700)),
                 ]),
-                Text('Events within this distance can reach you and be joined', style: ui(12.5, color: C.inkSoft)),
+                Text('Events within this distance can reach you and be joined', style: metaStyle()),
                 Slider(
                   value: radius, min: 1, max: 25, divisions: 24,
                   onChanged: (v) => setState(() => _radius = v),
@@ -139,32 +169,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         ],
         if (u.isFoundation) ...[
-          const SizedBox(height: 18),
+          const SizedBox(height: R.cardInset),
           _FoundationEditor(u: u, patch: _patch),
         ],
         if (u.isAdmin || u.isNeta) ...[
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: C.surface.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(R.card), border: Border.all(color: C.line)),
+          const SizedBox(height: R.cardInset),
+          FlatCard(
+            padding: const EdgeInsets.all(R.cardInset),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _Info(Icons.mail_outline_rounded, 'Email', u.email),
               if (u.isAdmin && (u.departmentName ?? '').isNotEmpty) _Info(Icons.account_balance_rounded, 'Department', u.departmentName!),
-              if (u.isNeta && (u.designation ?? '').isNotEmpty) _Info(Icons.how_to_vote_rounded, 'Designation', u.designation!),
+              if (u.isNeta && (u.designation ?? '').isNotEmpty) _Info(Icons.hub_rounded, 'Role', u.designation!),
               _Info(Icons.badge_outlined, 'Account type', u.roleLabel),
             ]),
           ),
         ],
         if (u.badges.isNotEmpty && (u.isCitizen || u.isFoundation)) ...[
-        const SizedBox(height: 22),
-        const SectionTitle('Merit badges'),
+        const SizedBox(height: R.cardInset),
+        const SectionTitle('Badges'),
         GridView(
           shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: 118),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: R.unit, crossAxisSpacing: R.unit, mainAxisExtent: 118),
           children: [for (final b in u.badges) _Badge(b)],
         ),
         ],
-        const SizedBox(height: 22),
+        const SizedBox(height: R.cardInset),
+        FlatCard(
+          padding: const EdgeInsets.symmetric(horizontal: R.cardInset),
+          child: _Row(
+            title: tr(ref, 'profile_language'), sub: 'Show the app in English or Hindi',
+            trailing: SizedBox(
+              width: 150,
+              child: SegmentedToggle(
+                labels: [tr(ref, 'language_english'), tr(ref, 'language_hindi')],
+                index: ref.watch(localeProvider) == 'hi' ? 1 : 0,
+                onChanged: (i) => ref.read(localeProvider.notifier).setLocale(i == 1 ? 'hi' : 'en'),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: R.cardInset + R.unit),
         PillButton(
           label: 'Sign out', icon: Icons.logout_rounded, color: C.muted, fg: C.ink,
           onPressed: () => ref.read(authProvider.notifier).logout(),
@@ -176,7 +220,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
 IconData _roleIcon(String role) => switch (role) {
       'admin' => Icons.account_balance_rounded,
-      'neta' => Icons.how_to_vote_rounded,
+      'neta' => Icons.hub_rounded,
       'foundation' => Icons.volunteer_activism_rounded,
       _ => Icons.person_rounded,
     };
@@ -187,19 +231,15 @@ class _Link extends StatelessWidget {
   final VoidCallback onTap;
   const _Link({required this.icon, required this.label, required this.onTap});
   @override
-  Widget build(BuildContext context) => TapScale(
+  Widget build(BuildContext context) => FlatCard(
         onTap: onTap,
-        child: Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(color: C.surface.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
-          child: Row(children: [
-            Icon(icon, size: 19, color: C.ember),
-            const SizedBox(width: 8),
-            Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: ui(13.5, w: 700))),
-            const Icon(Icons.chevron_right_rounded, size: 18, color: C.inkSoft),
-          ]),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: R.unit + 4, vertical: R.unit + 4),
+        child: Row(children: [
+          IconChip(icon),
+          const SizedBox(width: R.unit + 4),
+          Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle())),
+          const Icon(Icons.chevron_right_rounded, size: 20, color: C.inkSoft),
+        ]),
       );
 }
 
@@ -215,8 +255,8 @@ class _Info extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: ui(11.5, color: C.inkSoft, w: 650)),
-              Text(value, style: ui(14.5, w: 700), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(label, style: metaStyle()),
+              Text(value, style: bodyStyle(), maxLines: 2, overflow: TextOverflow.ellipsis),
             ]),
           ),
         ]),
@@ -241,7 +281,7 @@ class _FoundationEditorState extends State<_FoundationEditor> {
     final ok = await showAppSheet<bool>(
       context,
       title: 'Foundation details',
-      subtitle: 'Donors and admins see this on your public profile.',
+      subtitle: 'Givers and admins see this on your public profile.',
       body: (ctx) => Column(children: [
         AppField(controller: org, hint: 'Organisation name', icon: Icons.apartment_rounded, maxLength: 80),
         const SizedBox(height: 10),
@@ -264,12 +304,11 @@ class _FoundationEditorState extends State<_FoundationEditor> {
   @override
   Widget build(BuildContext context) {
     final u = widget.u;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: C.surface.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(R.card), border: Border.all(color: C.line)),
+    return FlatCard(
+      padding: const EdgeInsets.all(R.cardInset),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: Text('Our needs', style: ui(16, w: 750))),
+          Expanded(child: Text('Our needs', style: titleStyle())),
           TapScale(
             onTap: _edit,
             child: Container(
@@ -284,7 +323,7 @@ class _FoundationEditorState extends State<_FoundationEditor> {
           ),
         ]),
         const SizedBox(height: 4),
-        Text('Donors see these first. Tap to toggle.', style: ui(12.5, color: C.inkSoft)),
+        Text('Givers see these first. Tap to toggle.', style: metaStyle()),
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final k in _needKinds)
@@ -297,7 +336,7 @@ class _FoundationEditorState extends State<_FoundationEditor> {
             ),
         ]),
         if ((u.regNo ?? '').isNotEmpty) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: R.cardInset),
           _Info(Icons.badge_outlined, 'Registration no.', u.regNo!),
         ],
         if ((u.address ?? '').isNotEmpty) _Info(Icons.place_outlined, 'Address', u.address!),
@@ -307,6 +346,37 @@ class _FoundationEditorState extends State<_FoundationEditor> {
   }
 }
 
+class _ImpactCard extends StatelessWidget {
+  final int meals;
+  final bool foundation;
+  const _ImpactCard({required this.meals, required this.foundation});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Your impact', style: metaStyle()),
+              const SizedBox(height: 6),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: meals.toDouble()),
+                duration: const Duration(milliseconds: 900),
+                curve: Curves.easeOutCubic,
+                builder: (_, v, _) => Text('${v.round()}', style: display(44, w: 700)),
+              ),
+              Text(foundation ? 'Meals served to people in need' : 'Meals you helped serve', style: ui(13.5, color: C.inkSoft)),
+            ]),
+          ),
+          Container(
+            width: 52, height: 52,
+            decoration: const BoxDecoration(color: C.muted, shape: BoxShape.circle),
+            child: const Icon(Icons.restaurant_rounded, color: C.ink),
+          ),
+        ]),
+      );
+}
+
 class _Chip extends StatelessWidget {
   final IconData icon;
   final String text;
@@ -314,7 +384,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(12), boxShadow: C.shadowSoft),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 15, color: C.ember),
           const SizedBox(width: 5),
@@ -328,10 +398,9 @@ class _Stat extends StatelessWidget {
   const _Stat(this.v, this.l);
   @override
   Widget build(BuildContext context) => Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(color: C.surface.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
-          child: Column(children: [Text(v, style: ui(20, w: 650)), Text(l, style: ui(11.5, color: C.inkSoft, w: 650))]),
+        child: FlatCard(
+          padding: const EdgeInsets.symmetric(vertical: R.cardInset - 2, horizontal: R.unit),
+          child: Column(children: [Text(v, style: numStyle(20)), const SizedBox(height: 2), Text(l, style: metaStyle())]),
         ),
       );
 }
@@ -346,9 +415,9 @@ class _Row extends StatelessWidget {
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: ui(15, w: 700)),
+              Text(title, style: titleStyle()),
               const SizedBox(height: 2),
-              Text(sub, style: ui(12.5, color: C.inkSoft, h: 1.35)),
+              Text(sub, style: metaStyle()),
             ]),
           ),
           const SizedBox(width: 10),
@@ -369,8 +438,8 @@ class _Badge extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: on ? C.surface : C.surface.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: C.line),
+          borderRadius: BorderRadius.circular(R.card - 8),
+          boxShadow: on ? C.shadowSoft : null,
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(

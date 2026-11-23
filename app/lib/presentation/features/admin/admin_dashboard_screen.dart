@@ -34,9 +34,9 @@ class AdminDashboardScreen extends ConsumerWidget {
           Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Dashboard', style: ui(20, w: 650)),
+                Text('Overview', style: ui(20, w: 650)),
                 const SizedBox(height: 2),
-                Text(user?.departmentName ?? 'Authority portal', style: ui(13.5, color: C.inkSoft, w: 650), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(user?.departmentName ?? 'SevaLink admin', style: ui(13.5, color: C.inkSoft, w: 650), maxLines: 1, overflow: TextOverflow.ellipsis),
               ]),
             ),
             CircleBtn(

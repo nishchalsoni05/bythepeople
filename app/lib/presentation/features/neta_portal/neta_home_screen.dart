@@ -40,7 +40,7 @@ class _NetaHomeScreenState extends ConsumerState<NetaHomeScreen> {
         padding: EdgeInsets.fromLTRB(20, pad.top + 12, 20, 140),
         children: [
           Row(children: [
-            Expanded(child: Text('Your locality', style: ui(20, w: 650))),
+            Expanded(child: Text('Your community', style: ui(20, w: 650))),
             CircleBtn(
               icon: Icons.notifications_none_rounded,
               size: 42,
@@ -56,7 +56,7 @@ class _NetaHomeScreenState extends ConsumerState<NetaHomeScreen> {
             data: (d) => _Dashboard(d: d),
           ),
           const SizedBox(height: 22),
-          const SectionTitle('Locality feed'),
+          const SectionTitle('Community feed'),
           SegmentedToggle(labels: [for (final s in _statuses) s.$2], index: _status, onChanged: (i) => setState(() => _status = i)),
           const SizedBox(height: 10),
           SizedBox(

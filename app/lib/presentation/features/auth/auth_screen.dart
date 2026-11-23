@@ -9,18 +9,19 @@ import 'package:by_the_people/presentation/widgets/ui.dart';
 
 /// One way into the app. Each portal maps to a role on the server.
 class Portal {
-  final String role, title, blurb, demoEmail, demoPass;
+  final String id, role, title, blurb, demoEmail, demoPass;
   final IconData icon;
   final Color color;
-  final bool canRegister;
-  const Portal(this.role, this.title, this.blurb, this.icon, this.color, this.demoEmail, this.demoPass, {this.canRegister = false});
+  final bool canRegister, staff;
+  const Portal(this.id, this.role, this.title, this.blurb, this.icon, this.color, this.demoEmail, this.demoPass, {this.canRegister = false, this.staff = false});
 }
 
 const portals = <Portal>[
-  Portal('citizen', 'Citizen', 'Report issues, join drives, give surplus', Icons.groups_rounded, C.lime, 'demo@bythepeople.app', 'demo1234', canRegister: true),
-  Portal('admin', 'Admin', 'Authority officers: handle the issue queue', Icons.account_balance_rounded, C.sky, 'admin@bythepeople.app', 'admin1234'),
-  Portal('neta', 'Neta', 'Elected leaders: your locality at a glance', Icons.how_to_vote_rounded, C.amber, 'neta@bythepeople.app', 'neta1234'),
-  Portal('foundation', 'Foundation', 'NGOs: claim and distribute donations', Icons.volunteer_activism_rounded, C.lavender, 'seva@bythepeople.app', 'seva1234', canRegister: true),
+  Portal('foundation', 'foundation', 'Foundation', 'Post needs, claim surplus and serve people', Icons.volunteer_activism_rounded, C.lavender, 'seva@bythepeople.app', 'seva1234', canRegister: true),
+  Portal('giver', 'citizen', 'Giver or restaurant', 'Share surplus food, clothes and essentials', Icons.restaurant_rounded, C.lime, 'demo@bythepeople.app', 'demo1234', canRegister: true),
+  Portal('volunteer', 'citizen', 'Volunteer', 'Join gatherings and help nearby', Icons.groups_rounded, C.sky, 'demo@bythepeople.app', 'demo1234', canRegister: true),
+  Portal('admin', 'admin', 'Admin', 'Verify foundations and keep the network safe', Icons.verified_user_rounded, C.sky, 'admin@bythepeople.app', 'admin1234', staff: true),
+  Portal('coordinator', 'neta', 'Coordinator', 'Local coordinators: your area at a glance', Icons.hub_rounded, C.amber, 'neta@bythepeople.app', 'neta1234', staff: true),
 ];
 
 Portal portalFor(String role) => portals.firstWhere((p) => p.role == role, orElse: () => portals.first);
@@ -53,11 +54,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   void _choose(Portal? p) => setState(() {
         _portal = p;
+        if (p == null) _staff = false;
         _register = false;
         _wrongPortal = null;
       });
 
   bool get _isFoundation => _portal?.role == 'foundation';
+  bool _staff = false;
 
   bool get _valid {
     if (_email.text.trim().isEmpty || _pass.text.isEmpty) return false;
@@ -123,16 +126,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       body: PageBackdrop(
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 110),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               SizedBox(height: _portal == null ? 16 : 0),
               Center(child: BrandMark(size: _portal == null ? 108 : 72)),
               const SizedBox(height: 12),
-              Center(child: Text('By the People', style: display(26, w: 620))),
+              Center(child: Text('SevaLink', style: display(30, w: 700))),
               const SizedBox(height: 6),
               Center(
                 child: Text(
-                  _portal == null ? 'Civic action, community good, one app.' : 'Continue as ${_portal!.title}',
+                  _portal == null ? 'Live needs and surplus, connecting foundations, givers and volunteers.' : 'Continue as ${_portal!.title}',
                   textAlign: TextAlign.center,
                   style: ui(14, color: C.inkSoft),
                 ),
@@ -155,30 +158,36 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   // ---- portal chooser ----
-  Widget _chooser() => Column(key: const ValueKey('chooser'), crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(padding: const EdgeInsets.only(left: 4, bottom: 12), child: Text('Choose your portal', style: ui(17, w: 750))),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          mainAxisExtent: 154,
-          children: [for (final p in portals) _PortalTile(portal: p, onTap: () => _choose(p))],
+  Widget _chooser() => Column(key: const ValueKey('chooser'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(padding: const EdgeInsets.only(left: 4, bottom: 12), child: Text('How would you like to help?', style: display(22, w: 650))),
+        for (final p in portals.where((e) => !e.staff)) ...[
+          _PortalTile(portal: p, onTap: () => _choose(p)),
+          const SizedBox(height: 12),
+        ],
+        const SizedBox(height: 4),
+        Center(
+          child: TextButton(
+            onPressed: () => setState(() => _staff = !_staff),
+            child: Text(_staff ? 'Hide platform team sign in' : 'Platform team? Sign in', style: ui(13.5, w: 700, color: C.inkSoft)),
+          ),
         ),
-        const SizedBox(height: 16),
-        Center(child: Text('Admin and Neta accounts are issued by the platform.', textAlign: TextAlign.center, style: ui(12.5, color: C.inkSoft))),
+        if (_staff) ...[
+          for (final p in portals.where((e) => e.staff)) ...[
+            _PortalTile(portal: p, onTap: () => _choose(p)),
+            const SizedBox(height: 12),
+          ],
+        ],
       ]);
 
   // ---- login / register ----
   Widget _form(Portal p) {
-    return Column(key: ValueKey('form-${p.role}'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    return Column(key: ValueKey('form-${p.id}'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
           onPressed: _busy ? null : () => _choose(null),
           icon: const Icon(Icons.arrow_back_rounded, size: 18, color: C.ink),
-          label: Text('All portals', style: ui(13.5, w: 700)),
+          label: Text('Back', style: ui(13.5, w: 700)),
         ),
       ),
       FrostedPanel(
@@ -193,7 +202,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${p.title} portal', style: ui(16.5, w: 750)),
+                Text('${p.title} portal', style: ui(16.5, w: 750), maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text(p.blurb, style: ui(12.5, color: C.inkSoft, h: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
               ]),
             ),
@@ -286,18 +295,23 @@ class _PortalTile extends StatelessWidget {
   Widget build(BuildContext context) => TapScale(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: portal.color, borderRadius: BorderRadius.circular(R.card)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
+          child: Row(children: [
             Container(
-              width: 38, height: 38,
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: Icon(portal.icon, size: 20, color: C.ink),
+              width: 46, height: 46,
+              decoration: const BoxDecoration(color: C.ink, shape: BoxShape.circle),
+              child: Icon(portal.icon, size: 22, color: Colors.white),
             ),
-            const Spacer(),
-            Text(portal.title, style: ui(16, w: 750)),
-            const SizedBox(height: 2),
-            Text(portal.blurb, maxLines: 2, overflow: TextOverflow.ellipsis, style: ui(11.5, color: C.ink.withValues(alpha: 0.7), h: 1.25)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(portal.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: ui(16.5, w: 750)),
+                const SizedBox(height: 2),
+                Text(portal.blurb, maxLines: 2, overflow: TextOverflow.ellipsis, style: ui(12.5, color: C.inkSoft, h: 1.3)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: C.inkSoft),
           ]),
         ),
       );

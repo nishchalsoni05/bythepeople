@@ -42,7 +42,7 @@ class _NetaScreenState extends ConsumerState<NetaScreen> {
       padding: EdgeInsets.fromLTRB(20, pad.top + (compact ? 8 : 12), 20, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: Text('Neta cards', style: ui(20, w: 650))),
+          Expanded(child: Text('Coordinators', style: ui(20, w: 650))),
           _ModeSwitch(index: _mode, onChanged: (i) => setState(() => _mode = i)),
         ]),
         SizedBox(height: compact ? 8 : 12),
@@ -86,7 +86,7 @@ class _NetaScreenState extends ConsumerState<NetaScreen> {
                     // best performers on top; unrated last
                     items.sort((a, b) => (b.stats.rate ?? -1).compareTo(a.stats.rate ?? -1));
                     if (items.isEmpty) {
-                      return const SingleChildScrollView(child: EmptyState(title: 'No leaders here', body: 'Nobody is registered for this area yet.'));
+                      return const SingleChildScrollView(child: EmptyState(title: 'No coordinators here', body: 'Nobody is registered for this area yet.'));
                     }
                     return LayoutBuilder(builder: (context, c) {
                       final avail = c.maxHeight - navSpace;
@@ -109,7 +109,7 @@ class _NetaScreenState extends ConsumerState<NetaScreen> {
                   loading: () => const RowListSkeleton(count: 4),
                   error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(netaTreeProvider)),
                   data: (roots) => roots.isEmpty
-                      ? const SingleChildScrollView(child: EmptyState(title: 'No leaders here', body: 'Nobody is registered for this area yet.'))
+                      ? const SingleChildScrollView(child: EmptyState(title: 'No coordinators here', body: 'Nobody is registered for this area yet.'))
                       : ListView(padding: EdgeInsets.only(bottom: navSpace + 8, top: 4), children: [
                           Padding(
                             padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
