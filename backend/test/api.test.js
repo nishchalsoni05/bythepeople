@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 
 const tmp = path.join(os.tmpdir(), `sober-test-${Date.now()}.db`);
 process.env.DB_PATH = tmp;
+const uploads = path.join(os.tmpdir(), `sober-uploads-${Date.now()}`);
+process.env.UPLOAD_DIR = uploads;
 const { seed, BASE } = await import('../src/seed.js');
 const { buildApp } = await import('../src/server.js');
 seed();
@@ -46,7 +48,7 @@ await t('auth: register, duplicate, bad login, unauth', async () => {
 
 let streetlight;
 await t('feed: issues nearest first with distance + range flag', async () => {
-  const r = await call('GET', `/issues?phase=issue&lat=${BASE.lat}&lng=${BASE.lng}`, null, demo);
+  const r = await call('GET', `/issues?phase=issue&sort=nearby&lat=${BASE.lat}&lng=${BASE.lng}`, null, demo);
   assert.equal(r.status, 200);
   const items = r.body.items;
   assert.ok(items.length > 5);
@@ -300,3 +302,4 @@ await t('profile: rank, badges, volunteer toggle, radius validation', async () =
 
 console.log(`\n${passed} tests passed${process.exitCode ? ' (with failures)' : ''}`);
 fs.rmSync(tmp, { force: true });
+fs.rmSync(uploads, { recursive: true, force: true });
