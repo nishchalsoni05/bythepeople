@@ -3,10 +3,10 @@ import 'dart:ui' show FragmentProgram;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import '../device_tilt.dart';
-import '../models.dart';
-import '../tokens.dart';
-import 'shaders.dart';
+import 'package:by_the_people/core/sensors/device_tilt.dart';
+import 'package:by_the_people/domain/entities/models.dart';
+import 'package:by_the_people/core/theme/tokens.dart';
+import 'package:by_the_people/presentation/widgets/shaders.dart';
 
 const _rarityIndex = {'unrated': 0, 'common': 1, 'rare': 2, 'epic': 3, 'legendary': 4};
 

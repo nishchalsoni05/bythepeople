@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../tokens.dart';
+import 'package:by_the_people/core/theme/tokens.dart';
 
 const _mPerDegLat = 111320.0;
 

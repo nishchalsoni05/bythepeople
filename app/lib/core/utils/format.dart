@@ -41,8 +41,9 @@ String whenLabel(int ms) {
   return fmtDateLong(ms);
 }
 
+/// Distance label. Empty when unknown or 50 km or more (far-away noise is never shown).
 String km(double? v) {
-  if (v == null) return '';
+  if (v == null || v >= 20) return '';
   if (v < 1) return '${(v * 1000).round()} m';
   return '${v.toStringAsFixed(1)} km';
 }
@@ -54,3 +55,10 @@ String statusLabel(String s) => const {
       'pending_verification': 'Awaiting verification',
       'closed': 'Resolved',
     }[s] ?? s;
+
+/// "Raipur, Chhattisgarh" style place line for an issue; never shows coverage jargon.
+String placeLine(String? city, String? state, {String? address}) {
+  final parts = [city, state].whereType<String>().where((e) => e.trim().isNotEmpty).toList();
+  if (parts.isNotEmpty) return parts.join(', ');
+  return (address ?? '').trim();
+}

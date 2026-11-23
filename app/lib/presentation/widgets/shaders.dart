@@ -1,6 +1,6 @@
 import 'dart:ui' as dui;
 import 'package:flutter/material.dart';
-import '../tokens.dart';
+import 'package:by_the_people/core/theme/tokens.dart';
 
 class ShaderLib {
   static dui.FragmentProgram? holo, iridescent, orb;

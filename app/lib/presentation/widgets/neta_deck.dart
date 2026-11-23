@@ -2,10 +2,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import '../models.dart';
-import '../tokens.dart';
-import 'neta_card.dart';
-import 'ui.dart';
+import 'package:by_the_people/domain/entities/models.dart';
+import 'package:by_the_people/core/theme/tokens.dart';
+import 'package:by_the_people/presentation/widgets/neta_card.dart';
+import 'package:by_the_people/presentation/widgets/ui.dart';
 
 /// Vertical room the stack needs around the card: shadow/bob room (34) + the cards peeking out below.
 double deckPeek(bool compact) => compact ? 16 : 30;

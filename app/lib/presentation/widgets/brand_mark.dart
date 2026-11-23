@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../tokens.dart';
+import 'package:by_the_people/core/theme/tokens.dart';
 
 /// The By the People mark: a crowd of eight people facing outward around a
 /// check mark. Same geometry as tool/make_icon.py (the app icon).

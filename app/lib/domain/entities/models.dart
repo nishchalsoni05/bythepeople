@@ -2,10 +2,16 @@ class Person {
   final int id;
   final String name;
   final int hue;
-  Person(this.id, this.name, this.hue);
-  factory Person.fromJson(Map<String, dynamic> j) => Person(j['id'], j['name'], (j['hue'] ?? 200) as int);
+  final String role; // citizen | admin | neta | foundation
+  final String? orgName;
+  final bool verified;
+  Person(this.id, this.name, this.hue, {this.role = 'citizen', this.orgName, this.verified = true});
+  factory Person.fromJson(Map<String, dynamic> j) => Person(j['id'] ?? 0, j['name'] ?? '?', (j['hue'] ?? 200) as int,
+      role: (j['role'] ?? 'citizen') as String, orgName: j['orgName'], verified: (j['verified'] ?? true) as bool);
+  String get shownName => role == 'foundation' && (orgName ?? '').isNotEmpty ? orgName! : name;
   String get initials {
-    final parts = name.trim().split(RegExp(r'\s+'));
+    final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
     return (parts.first[0] + (parts.length > 1 ? parts.last[0] : '')).toUpperCase();
   }
 }
@@ -21,11 +27,26 @@ class PolRef {
 
 class TimelineEntry {
   final String status;
-  final String? note, userName;
+  final String? note, userName, actorRole;
   final int createdAt;
-  TimelineEntry(this.status, this.note, this.userName, this.createdAt);
-  factory TimelineEntry.fromJson(Map<String, dynamic> j) =>
-      TimelineEntry(j['status'], j['note'], j['userName'], j['createdAt']);
+  final List<String> media;
+  final String kind; // status | authority | neta | system
+  TimelineEntry(this.status, this.note, this.userName, this.createdAt,
+      {this.media = const [], this.actorRole, this.kind = 'status'});
+  factory TimelineEntry.fromJson(Map<String, dynamic> j) => TimelineEntry(
+        (j['status'] ?? 'open') as String, j['note'], (j['userName'] ?? j['actor']?['name']) as String?, (j['createdAt'] ?? 0) as int,
+        media: ((j['media'] ?? const []) as List).map((e) => '$e').toList(),
+        actorRole: j['actorRole'] as String?,
+        kind: (j['kind'] ?? 'status') as String,
+      );
+}
+
+/// The authority responsible for an issue, e.g. Raipur Municipal Corporation / Public Works / @RMC_Raipur.
+class Authority {
+  final String name, department, handle;
+  Authority(this.name, this.department, this.handle);
+  factory Authority.fromJson(Map<String, dynamic> j) =>
+      Authority('${j['name'] ?? ''}', '${j['department'] ?? ''}', '${j['handle'] ?? ''}');
 }
 
 class Verification {
@@ -82,6 +103,14 @@ class Issue {
   final List<TimelineEntry> timeline;
   final Verification? verification;
   final AreaNames area;
+  // Social + authority layer (api-v3).
+  final int likeCount, commentCount, shareCount, engagement;
+  final bool likedByMe, escalated;
+  final List<String> media;
+  final Authority? authority;
+  final String authorityStatus; // open | acknowledged | in_progress | resolved
+  final String? assignedTo, escalationNote, shareText, publicUrl;
+  final Person? escalatedBy;
 
   Issue({
     required this.id, required this.title, required this.description, required this.category,
@@ -94,6 +123,10 @@ class Issue {
     required this.supportedByMe, required this.volunteeringByMe, required this.reportedByMe,
     required this.verifiedByMe, required this.isOrganiser, required this.timeline, this.verification,
     required this.area,
+    this.likeCount = 0, this.commentCount = 0, this.shareCount = 0, this.engagement = 0,
+    this.likedByMe = false, this.escalated = false, this.media = const [], this.authority,
+    this.authorityStatus = 'open', this.assignedTo, this.escalationNote, this.shareText, this.publicUrl,
+    this.escalatedBy,
   });
 
   factory Issue.fromJson(Map<String, dynamic> j) {
@@ -117,6 +150,15 @@ class Issue {
       timeline: ((j['timeline'] ?? []) as List).map((e) => TimelineEntry.fromJson(e)).toList(),
       verification: j['verification'] == null ? null : Verification.fromJson(j['verification']),
       area: AreaNames.fromJson(Map<String, dynamic>.from((j['area'] ?? const <String, dynamic>{}) as Map)),
+      likeCount: (j['likeCount'] ?? 0) as int, commentCount: (j['commentCount'] ?? 0) as int,
+      shareCount: (j['shareCount'] ?? 0) as int, engagement: (j['engagement'] ?? 0) as int,
+      likedByMe: (j['likedByMe'] ?? false) as bool, escalated: (j['escalated'] == true || j['escalated'] == 1),
+      media: ((j['media'] ?? const []) as List).map((e) => '$e').toList(),
+      authority: j['authority'] == null ? null : Authority.fromJson(Map<String, dynamic>.from(j['authority'] as Map)),
+      authorityStatus: (j['authorityStatus'] ?? 'open') as String,
+      assignedTo: j['assignedTo'] as String?, escalationNote: j['escalationNote'] as String?,
+      shareText: j['shareText'] as String?, publicUrl: j['publicUrl'] as String?,
+      escalatedBy: j['escalatedBy'] == null ? null : Person.fromJson(Map<String, dynamic>.from(j['escalatedBy'] as Map)),
     );
   }
 
@@ -151,14 +193,14 @@ class Neta {
       required this.level, this.tagline, this.city, this.state, this.region, this.cityId, this.stateId, this.regionId,
       this.parent, required this.stats, this.children = const []});
   factory Neta.fromJson(Map<String, dynamic> j) => Neta(
-        id: j['id'], hue: j['hue'], name: j['name'], party: j['party'], constituency: j['constituency'],
-        level: j['level'], tagline: j['tagline'],
+        id: j['id'], hue: (j['hue'] ?? 20) as int, name: j['name'], party: j['party'] ?? '', constituency: j['constituency'] ?? '',
+        level: j['level'] ?? 'ward', tagline: j['tagline'],
         city: j['city'], state: j['state'], region: j['region'],
         cityId: j['cityId'], stateId: j['stateId'], regionId: j['regionId'],
         parent: j['parent'] == null
             ? null
             : PolRef(j['parent']['id'], j['parent']['name'], j['parent']['party'] ?? '', '', j['parent']['level'], 20),
-        stats: NetaStats.fromJson(j['stats']),
+        stats: j['stats'] == null ? NetaStats(0, 0, 0, 0, 5, null, null, 0, false, 'unrated') : NetaStats.fromJson(Map<String, dynamic>.from(j['stats'] as Map)),
         children: ((j['children'] ?? []) as List).map((e) => Neta.fromJson(e)).toList(),
       );
   String get levelLabel => const {
@@ -201,15 +243,43 @@ class UserProfile {
   final RankInfo rank;
   final Map<String, int> stats;
   final List<BadgeInfo> badges;
+  // Role-aware fields (api-v3).
+  final String role; // citizen | admin | neta | foundation
+  final bool verified;
+  final String? orgName, regNo, about, address, departmentName, designation;
+  final List<String> needs;
+  final int? politicianId;
   UserProfile(this.id, this.points, this.hue, this.name, this.email, this.volunteer, this.alertRadiusKm, this.rank,
-      this.stats, this.badges);
+      this.stats, this.badges,
+      {this.role = 'citizen', this.verified = true, this.orgName, this.regNo, this.about, this.address,
+      this.departmentName, this.designation, this.needs = const [], this.politicianId});
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
-        j['id'], j['points'], j['hue'], j['name'], j['email'], j['volunteer'],
-        (j['alertRadiusKm'] as num).toDouble(), RankInfo.fromJson(j['rank']),
-        (j['stats'] as Map).map((k, v) => MapEntry(k as String, v as int)),
-        (j['badges'] as List).map((e) => BadgeInfo.fromJson(e)).toList(),
+        j['id'], (j['points'] ?? 0) as int, (j['hue'] ?? 200) as int, j['name'], j['email'], (j['volunteer'] ?? false) as bool,
+        ((j['alertRadiusKm'] ?? 5) as num).toDouble(),
+        RankInfo.fromJson(j['rank'] ?? const {'name': 'Rookie', 'index': 0, 'min': 0, 'progress': 0}),
+        ((j['stats'] ?? const {}) as Map).map((k, v) => MapEntry(k as String, (v as num).toInt())),
+        ((j['badges'] ?? const []) as List).map((e) => BadgeInfo.fromJson(e)).toList(),
+        role: (j['role'] ?? 'citizen') as String,
+        verified: (j['verified'] ?? true) as bool,
+        orgName: j['orgName'], regNo: j['regNo'], about: j['about'], address: j['address'],
+        departmentName: j['departmentName'], designation: j['designation'],
+        needs: ((j['needs'] ?? const []) as List).map((e) => '$e').toList(),
+        politicianId: j['politicianId'] as int?,
       );
   Person get asPerson => Person(id, name, hue);
+
+  bool get isCitizen => role == 'citizen';
+  bool get isAdmin => role == 'admin';
+  bool get isNeta => role == 'neta';
+  bool get isFoundation => role == 'foundation';
+  bool get isVerifiedFoundation => isFoundation && verified;
+
+  /// Name to show for the account: organisation for foundations.
+  String get displayName => isFoundation && (orgName ?? '').isNotEmpty ? orgName! : name;
+
+  String get roleLabel => const {
+        'citizen': 'Citizen', 'admin': 'Authority officer', 'neta': 'Neta', 'foundation': 'Foundation',
+      }[role] ?? role;
 }
 
 class AppNotification {
@@ -218,9 +288,18 @@ class AppNotification {
   final String? body;
   final int? issueId;
   final bool read;
-  AppNotification(this.id, this.type, this.title, this.body, this.issueId, this.read, this.createdAt);
-  factory AppNotification.fromJson(Map<String, dynamic> j) =>
-      AppNotification(j['id'], j['type'], j['title'], j['body'], j['issueId'], j['read'], j['createdAt']);
+  /// Deep-link target: 'issue' | 'gathering' | 'donation' plus its id.
+  final String? refType;
+  final int? refId;
+  AppNotification(this.id, this.type, this.title, this.body, this.issueId, this.read, this.createdAt,
+      {this.refType, this.refId});
+  factory AppNotification.fromJson(Map<String, dynamic> j) {
+    final issueId = j['issueId'] as int?;
+    final refType = (j['refType'] as String?) ?? (issueId != null ? 'issue' : null);
+    final refId = (j['refId'] as int?) ?? issueId;
+    return AppNotification(j['id'], j['type'], j['title'] ?? '', j['body'], issueId, (j['read'] ?? false) as bool, j['createdAt'],
+        refType: refType, refId: refId);
+  }
 }
 
 class Rewards {
@@ -257,4 +336,17 @@ class ActionResult {
         linked: j['linked'] ?? false,
         outcome: j['outcome'],
       );
+}
+
+class NetaDetail {
+  final Neta neta;
+  final List<Neta> children;
+  final List<Issue> open, resolved;
+  NetaDetail(this.neta, this.children, this.open, this.resolved);
+}
+
+class NetaList {
+  final List<Neta> items;
+  final List<String> parties;
+  NetaList(this.items, this.parties);
 }

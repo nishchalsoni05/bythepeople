@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models.dart';
-import '../tokens.dart';
-import 'ui.dart';
+import 'package:by_the_people/domain/entities/models.dart';
+import 'package:by_the_people/core/theme/tokens.dart';
+import 'package:by_the_people/presentation/widgets/ui.dart';
 
 const _confettiColors = [C.ember, C.emberLight, C.lime, C.lavender, C.sky, C.blush, Colors.white];
 
