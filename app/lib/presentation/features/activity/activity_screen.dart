@@ -36,7 +36,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
         children: [
           Text('My activity', style: ui(20, w: 650)),
           const SizedBox(height: 14),
-          SegmentedToggle(labels: const ['My reports', 'Supported', 'My events'], index: _tab, onChanged: (i) => setState(() {
+          SegmentedToggle(labels: const ['My needs', 'Backed', 'My events'], index: _tab, onChanged: (i) => setState(() {
                 _tab = i;
                 _day = null;
               })),
@@ -48,8 +48,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
               if (_tab != 2) {
                 if (items.isEmpty) {
                   return EmptyState(
-                    title: _tab == 0 ? 'No reports yet' : 'Nothing supported yet',
-                    body: _tab == 0 ? 'Tap the + button to report a problem near you.' : 'Back issues from your neighbours in the Feed tab.',
+                    title: _tab == 0 ? 'No needs posted yet' : 'Nothing backed yet',
+                    body: _tab == 0 ? 'Tap the + button to post a need for your foundation.' : 'Back needs from foundations near you in the Home tab.',
                   );
                 }
                 return Column(children: [

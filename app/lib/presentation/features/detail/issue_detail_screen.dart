@@ -68,7 +68,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     final loc = ref.watch(locationProvider);
     final pad = MediaQuery.of(context).padding;
     if (_optSupport != null && _optSupport == i.supportedByMe) _optSupport = null;
-    final steps = ['Issue', 'Event', 'In progress', 'Verified'];
+    final steps = ['Need', 'Event', 'In progress', 'Fulfilled'];
     final stepIndex = {'open': 0, 'event': 1, 'in_progress': 2, 'pending_verification': 2, 'closed': 3}[i.status]!;
 
     return Stack(children: [
@@ -165,14 +165,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       RollingNumber(i.supportCount + ((_optSupport == true && !i.supportedByMe) ? 1 : 0), style: ui(26, w: 650)),
                       Text(' / ${i.threshold}', style: ui(17, color: C.inkSoft, w: 600)),
                       const Spacer(),
-                      Text('supporters', style: ui(13, color: C.inkSoft, w: 600)),
+                      Text('backers', style: ui(13, color: C.inkSoft, w: 600)),
                     ]),
                     const SizedBox(height: 12),
                     HatchedProgress(value: i.supportCount / i.threshold, fill: p.bar, track: C.muted, height: 8),
                     const SizedBox(height: 10),
                     Text(
-                      '${i.threshold - i.supportCount} more supporter${i.threshold - i.supportCount == 1 ? ' turns' : 's turn'} this into an event'
-                      '${i.linkedCount > 0 ? '  ·  ${i.linkedCount} matching report${i.linkedCount == 1 ? '' : 's'} raise its severity' : ''}',
+                      '${i.threshold - i.supportCount} more backer${i.threshold - i.supportCount == 1 ? ' turns' : 's turn'} this into an event'
+                      '${i.linkedCount > 0 ? '  ·  ${i.linkedCount} similar post${i.linkedCount == 1 ? '' : 's'} raise its urgency' : ''}',
                       style: ui(13, color: C.inkSoft, h: 1.4),
                     ),
                   ])
@@ -230,7 +230,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 Row(children: [
                   Expanded(child: _Vote(label: 'Confirmed', n: i.verification!.approvals, need: i.verification!.needed, color: const Color(0xFF6FBF8A))),
                   const SizedBox(width: 10),
-                  Expanded(child: _Vote(label: 'Not fixed', n: i.verification!.rejections, need: i.verification!.needed, color: C.ember)),
+                  Expanded(child: _Vote(label: 'Not met', n: i.verification!.rejections, need: i.verification!.needed, color: C.ember)),
                 ]),
               ]),
             ),
@@ -362,13 +362,13 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       ]));
     }
     if (me?.isFoundation == true) {
-      return bar(PillButton(label: 'Share this issue', icon: Icons.ios_share_rounded, color: C.ink, onPressed: () => shareIssue(context, ref, i)));
+      return bar(PillButton(label: 'Share this need', icon: Icons.ios_share_rounded, color: C.ink, onPressed: () => shareIssue(context, ref, i)));
     }
 
     if (i.status == 'open') {
       if (_optSupport ?? i.supportedByMe) {
         return bar(Row(children: [
-          const Expanded(child: PillButton(label: 'You are affected too', icon: Icons.check_rounded, color: C.muted, fg: C.ink, onPressed: null)),
+          const Expanded(child: PillButton(label: 'You are backing this', icon: Icons.check_rounded, color: C.muted, fg: C.ink, onPressed: null)),
           if (!i.reportedByMe && i.supportedByMe) ...[
             const SizedBox(width: 8),
             PillButton(label: 'Withdraw', expand: false, color: C.muted, fg: C.ink, loading: _busy, onPressed: () => _run(() => a.withdraw(i.id), ok: 'Support withdrawn')),
@@ -376,13 +376,13 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         ]));
       }
       if (i.inRange == false) {
-        return bar(PillButton(label: 'Too far to support (max ${i.radiusKm % 1 == 0 ? i.radiusKm.toInt() : i.radiusKm} km)', icon: Icons.lock_outline_rounded, onPressed: null));
+        return bar(PillButton(label: 'Too far to help (max ${i.radiusKm % 1 == 0 ? i.radiusKm.toInt() : i.radiusKm} km)', icon: Icons.lock_outline_rounded, onPressed: null));
       }
       return bar(PillButton(
-        label: "I'm affected too", icon: Icons.pan_tool_alt_outlined, color: C.ember, loading: _busy,
+        label: 'I can help', icon: Icons.pan_tool_alt_outlined, color: C.ember, loading: _busy,
         onPressed: () {
           setState(() => _optSupport = true);
-          _run(() => a.support(i.id), ok: 'Thanks for backing your neighbours', headline: (r) => r.converted ? 'This is now an Event!' : 'Support added');
+          _run(() => a.support(i.id), ok: 'Thanks for backing this need', headline: (r) => r.converted ? 'This is now an Event!' : 'Support added');
         },
       ));
     }
@@ -391,7 +391,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       if (i.volunteeringByMe) {
         return bar(Row(children: [
           if (i.status == 'in_progress')
-            Expanded(child: PillButton(label: 'Mark resolved', icon: Icons.done_all_rounded, color: C.ink, loading: _busy, onPressed: () => _resolve(i))),
+            Expanded(child: PillButton(label: 'Mark fulfilled', icon: Icons.done_all_rounded, color: C.ink, loading: _busy, onPressed: () => _resolve(i))),
           if (i.status == 'in_progress') const SizedBox(width: 8),
           PillButton(label: 'Leave', expand: false, color: C.muted, fg: C.ink, onPressed: _busy ? null : () => _run(() => a.leave(i.id), ok: 'You left the event')),
         ]));
@@ -424,14 +424,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       }
       if (i.supportedByMe && !i.volunteeringByMe) {
         return bar(Row(children: [
-          Expanded(child: PillButton(label: 'Not fixed', icon: Icons.close_rounded, color: C.muted, fg: C.ink, onPressed: _busy ? null : () => _run(() => a.verify(i.id, false), ok: 'Reported as not fixed'))),
+          Expanded(child: PillButton(label: 'Not met', icon: Icons.close_rounded, color: C.muted, fg: C.ink, onPressed: _busy ? null : () => _run(() => a.verify(i.id, false), ok: 'Marked as not met'))),
           const SizedBox(width: 8),
-          Expanded(flex: 2, child: PillButton(label: 'Looks fixed', icon: Icons.check_rounded, color: C.ink, loading: _busy, onPressed: () => _run(() => a.verify(i.id, true), headline: (r) => r.outcome == 'closed' ? 'Verified and closed!' : 'Vote counted'))),
+          Expanded(flex: 2, child: PillButton(label: 'Need met', icon: Icons.check_rounded, color: C.ink, loading: _busy, onPressed: () => _run(() => a.verify(i.id, true), headline: (r) => r.outcome == 'closed' ? 'Fulfilled and closed!' : 'Vote counted'))),
         ]));
       }
-      return bar(const PillButton(label: 'Waiting for supporters to verify', icon: Icons.hourglass_top_rounded, onPressed: null));
+      return bar(const PillButton(label: 'Waiting for backers to confirm', icon: Icons.hourglass_top_rounded, onPressed: null));
     }
-    return bar(const PillButton(label: 'Resolved and verified', icon: Icons.verified_rounded, color: C.mintDeep, fg: C.ink, onPressed: null));
+    return bar(const PillButton(label: 'Fulfilled and confirmed', icon: Icons.verified_rounded, color: C.mintDeep, fg: C.ink, onPressed: null));
   }
 
   Future<void> _resolve(Issue i) async {
@@ -448,12 +448,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('What was done?', style: ui(20, w: 650)),
             const SizedBox(height: 6),
-            Text('Neighbours who backed this issue will be asked to confirm.', style: ui(13.5, color: C.inkSoft)),
+            Text('People who backed this need will be asked to confirm it was met.', style: ui(13.5, color: C.inkSoft)),
             const SizedBox(height: 14),
             TextField(
               controller: ctl, maxLines: 3, autofocus: true, style: ui(15),
               decoration: InputDecoration(
-                hintText: 'e.g. Potholes filled and road levelled', filled: true, fillColor: C.surface,
+                hintText: 'e.g. 40 school bags delivered to the children', filled: true, fillColor: C.surface,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
             ),
@@ -515,7 +515,7 @@ class _AuthorityBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = issue.authority!;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Responsible authority', style: ui(12, color: C.inkSoft, w: 650)),
+      Text('Verified by', style: ui(12, color: C.inkSoft, w: 650)),
       const SizedBox(height: 6),
       Row(children: [
         Container(
@@ -568,7 +568,7 @@ class _TimelineRow extends StatelessWidget {
           }[entry.status] ?? C.lime,
     };
     final who = switch (entry.kind) {
-      'authority' => 'Authority',
+      'authority' => 'Verified',
       'neta' => 'Neta',
       _ => null,
     };

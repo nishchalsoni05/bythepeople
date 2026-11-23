@@ -91,7 +91,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               loading: () => const RowListSkeleton(),
               error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(notificationsProvider)),
               data: (items) => items.isEmpty
-                  ? const EmptyState(title: 'You are all caught up', body: 'Alerts about your reports, gatherings and donations show up here.')
+                  ? const EmptyState(title: 'You are all caught up', body: 'Alerts about your needs, events and donations show up here.')
                   : Column(children: [
                       for (final n in items)
                         TapScale(

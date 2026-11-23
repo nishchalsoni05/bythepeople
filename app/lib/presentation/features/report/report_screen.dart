@@ -46,7 +46,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       initial: _pin == null ? LatLng(loc.lat!, loc.lng!) : LatLng(_pin!.lat, _pin!.lng),
       limitCenter: LatLng(loc.lat!, loc.lng!),
       radiusKm: _cat?.radiusKm,
-      title: 'Where is the issue?',
+      title: 'Where is the need?',
     );
     if (r != null) setState(() => _pin = (lat: r.lat, lng: r.lng));
   }
@@ -104,7 +104,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       if (!mounted) return;
       celebrate(context,
           rewards: r.rewards,
-          headline: r.linked ? 'Added to the existing issue' : 'Reported and routed to your representative',
+          headline: r.linked ? 'Added to the existing need' : 'Need posted. Givers nearby are being notified',
           confetti: true);
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => IssueDetailScreen(id: r.issue!.id)));
     } on ApiException catch (e) {
@@ -120,7 +120,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     final cats = ref.watch(metaProvider);
     final loc = ref.watch(locationProvider);
     final pad = MediaQuery.of(context).padding;
-    final titles = ['What is wrong?', 'Where exactly?', 'Tell us more', 'Review'];
+    final titles = ['What is needed?', 'Where exactly?', 'Describe the need', 'Review'];
     return Scaffold(
       body: PageBackdrop(
         child: Column(children: [
@@ -177,7 +177,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                               Icon(categoryIcons[c.key], size: 26, color: _cat?.key == c.key ? C.lime : C.ink),
                               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(c.label, style: ui(14.5, color: _cat?.key == c.key ? Colors.white : C.ink, w: 700, h: 1.2)),
+                                Text(categoryLabels[c.key] ?? c.label, style: ui(14.5, color: _cat?.key == c.key ? Colors.white : C.ink, w: 700, h: 1.2)),
                                 Text('within ${c.radiusKm % 1 == 0 ? c.radiusKm.toInt() : c.radiusKm} km', style: ui(11.5, color: _cat?.key == c.key ? Colors.white70 : C.inkSoft)),
                               ]),
                             ]),
@@ -189,12 +189,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 // 2. where
                 ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 20), children: [
                   Text(
-                    'Drop the pin on the problem. You can only report within ${_cat == null ? '' : '${_cat!.radiusKm % 1 == 0 ? _cat!.radiusKm.toInt() : _cat!.radiusKm} km'} of where you stand.',
+                    'Drop the pin on the foundation or pickup spot. You can only post within ${_cat == null ? '' : '${_cat!.radiusKm % 1 == 0 ? _cat!.radiusKm.toInt() : _cat!.radiusKm} km'} of where you stand.',
                     style: ui(14, color: C.inkSoft, h: 1.45),
                   ),
                   const SizedBox(height: 14),
                   if (!loc.has)
-                    const EmptyState(title: 'Need your location', body: 'Allow location access so we can verify you are close to the issue.')
+                    const EmptyState(title: 'Need your location', body: 'Allow location access so we can verify you are close to this need.')
                   else if (_cat != null) ...[
                     if (_pin != null)
                       MapPreview(
@@ -226,18 +226,18 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   Row(children: [
                     Icon(_pin == null ? Icons.touch_app_rounded : Icons.place_rounded, size: 18, color: _pin == null ? C.inkSoft : C.ember),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(_pin == null ? 'Drag the map to the problem' : 'Pin set ${_pinDistance(loc)} from you', style: ui(13.5, w: 600))),
+                    Expanded(child: Text(_pin == null ? 'Drag the map to the spot' : 'Pin set ${_pinDistance(loc)} from you', style: ui(13.5, w: 600))),
                   ]),
                 ]),
                 // 3. details
                 ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 20), children: [
-                  _Input(controller: _title, hint: 'Short title, e.g. Deep pothole near the bus stop', onChanged: (_) => setState(() {}), maxLength: 80),
+                  _Input(controller: _title, hint: 'Short title, e.g. 40 school bags for children', onChanged: (_) => setState(() {}), maxLength: 80),
                   const SizedBox(height: 12),
-                  _Input(controller: _desc, hint: 'What is happening and who does it affect? (optional)', lines: 5, maxLength: 400),
+                  _Input(controller: _desc, hint: 'How much is needed, by when, and who it helps (optional)', lines: 5, maxLength: 400),
                   const SizedBox(height: 18),
-                  Text('Photos or video', style: ui(14.5, w: 750)),
+                  Text('Photos', style: ui(14.5, w: 750)),
                   const SizedBox(height: 4),
-                  Text('Evidence gets issues fixed faster. Up to 4 files.', style: ui(12.5, color: C.inkSoft)),
+                  Text('Photos help givers trust and respond faster. Up to 4 files.', style: ui(12.5, color: C.inkSoft)),
                   const SizedBox(height: 8),
                   MediaAttachStrip(controller: _media),
                 ]),
@@ -253,10 +253,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                         Row(children: [
                           const Icon(Icons.content_copy_rounded, size: 18, color: C.ember),
                           const SizedBox(width: 8),
-                          Expanded(child: Text('Already reported nearby', style: ui(14.5, w: 750))),
+                          Expanded(child: Text('Similar need nearby', style: ui(14.5, w: 750))),
                         ]),
                         const SizedBox(height: 4),
-                        Text('Backing an existing issue makes it count for more.', style: ui(13, color: C.inkSoft)),
+                        Text('Backing an existing need keeps it in one place.', style: ui(13, color: C.inkSoft)),
                         const SizedBox(height: 10),
                         for (final s in _similar.take(3))
                           Container(
@@ -267,7 +267,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                               Expanded(
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                   Text(s.title, style: ui(14, w: 700), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                  Text('${km(s.distanceKm)} away · ${s.supportCount} supporters', style: ui(12, color: C.inkSoft)),
+                                  Text('${km(s.distanceKm)} away · ${s.supportCount} backers', style: ui(12, color: C.inkSoft)),
                                 ]),
                               ),
                               const SizedBox(width: 8),
@@ -285,7 +285,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                       Row(children: [
                         Icon(categoryIcons[_cat?.key], size: 18, color: C.inkSoft),
                         const SizedBox(width: 8),
-                        Text(_cat?.label ?? '', style: ui(13, color: C.inkSoft, w: 700)),
+                        Text(categoryLabels[_cat?.key] ?? _cat?.label ?? '', style: ui(13, color: C.inkSoft, w: 700)),
                       ]),
                       const SizedBox(height: 10),
                       Text(_title.text.trim(), style: ui(18, w: 700, h: 1.3)),
@@ -302,7 +302,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                         ]),
                       ],
                       const SizedBox(height: 14),
-                      Text('It will be routed to the councillor whose ward covers this spot and tagged to the responsible authority. Reaching 5 supporters turns it into an event.', style: ui(12.5, color: C.inkSoft, h: 1.45)),
+                      Text('Givers and volunteers nearby will be notified. Once enough people back it, it becomes an event you can organise together.', style: ui(12.5, color: C.inkSoft, h: 1.45)),
                     ]),
                   ),
                 ]),
@@ -312,7 +312,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           Padding(
             padding: EdgeInsets.fromLTRB(20, 8, 20, pad.bottom + 16),
             child: PillButton(
-              label: _step == 3 ? (_similar.isNotEmpty ? 'Report as new issue' : 'Submit report') : 'Continue',
+              label: _step == 3 ? (_similar.isNotEmpty ? 'Post as new need' : 'Post need') : 'Continue',
               icon: _step == 3 ? Icons.campaign_rounded : null,
               color: _step == 3 ? C.ember : C.ink,
               loading: _busy || _loadingSimilar || _media.uploading,

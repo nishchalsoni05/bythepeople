@@ -17,7 +17,7 @@ class RoleTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, bg) = switch (role) {
-      'admin' => ('Authority', Color(0xFFE3EFF9)),
+      'admin' => ('Verifier', Color(0xFFE3EFF9)),
       'neta' => ('Neta', Color(0xFFFCEBD9)),
       'foundation' => ('Foundation', Color(0xFFEAE6F6)),
       _ => ('', C.muted),

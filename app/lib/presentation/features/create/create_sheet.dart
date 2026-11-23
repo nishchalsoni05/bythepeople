@@ -7,16 +7,16 @@ import 'package:by_the_people/presentation/features/report/report_screen.dart';
 import 'package:by_the_people/presentation/widgets/sheets.dart';
 import 'package:by_the_people/presentation/widgets/ui.dart';
 
-/// The centre "+" of the citizen nav: report an issue, start a gathering, or donate surplus.
+/// The centre "+" of the citizen nav: post a need, start an event, or donate surplus.
 Future<void> showCreateSheet(BuildContext context) async {
   final choice = await showAppSheet<int>(
     context,
     title: 'Create',
     subtitle: 'What would you like to do?',
     body: (ctx) => Column(children: [
-      _Tile(icon: Icons.campaign_rounded, color: C.amber, title: 'Report an issue', sub: 'Flag a civic problem to your neighbours and the authority', onTap: () => Navigator.pop(ctx, 0)),
-      _Tile(icon: Icons.diversity_3_rounded, color: C.lavender, title: 'Start a gathering', sub: 'Plantation, cleanup, blood drive, marathon and more', onTap: () => Navigator.pop(ctx, 1)),
-      _Tile(icon: Icons.volunteer_activism_rounded, color: C.lime, title: 'Donate surplus', sub: 'Food, clothes, books: verified foundations collect it', onTap: () => Navigator.pop(ctx, 2)),
+      _Tile(icon: Icons.campaign_rounded, color: C.amber, title: 'Post a need', sub: 'Foundations: ask for food, clothes, money, medicine, stationery or people', onTap: () => Navigator.pop(ctx, 0)),
+      _Tile(icon: Icons.diversity_3_rounded, color: C.lavender, title: 'Start an event', sub: 'Meal service, donation drive, blood camp, teaching day and more', onTap: () => Navigator.pop(ctx, 1)),
+      _Tile(icon: Icons.volunteer_activism_rounded, color: C.lime, title: 'Donate surplus', sub: 'Extra food, clothes or books: verified foundations collect it', onTap: () => Navigator.pop(ctx, 2)),
     ]),
   );
   if (choice == null || !context.mounted) return;
