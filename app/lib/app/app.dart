@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:by_the_people/core/i18n/strings.dart';
 import 'package:by_the_people/core/theme/tokens.dart';
+import 'package:by_the_people/presentation/providers/locale_provider.dart';
 import 'package:by_the_people/presentation/features/admin/admin_dashboard_screen.dart';
 import 'package:by_the_people/presentation/features/admin/admin_foundations_screen.dart';
 import 'package:by_the_people/presentation/features/admin/admin_queue_screen.dart';
@@ -129,7 +131,7 @@ class _ShellState extends ConsumerState<Shell> with WidgetsBindingObserver {
     final pad = MediaQuery.of(context).padding;
     final unread = ref.watch(authProvider.select((s) => s.unread));
     final role = ref.watch(roleProvider);
-    final cfg = shellConfigFor(role);
+    final cfg = shellConfigFor(role, ref.watch(localeProvider));
     final tab = ref.watch(shellTabProvider).clamp(0, cfg.items.length - 1);
     _visited.add(tab);
     return Scaffold(
@@ -156,7 +158,7 @@ class _ShellState extends ConsumerState<Shell> with WidgetsBindingObserver {
               items: cfg.items,
               addSlot: cfg.addSlot,
               onChanged: (i) => ref.read(shellTabProvider.notifier).go(i),
-              onAdd: cfg.addSlot == null ? null : () => showCreateSheet(context),
+              onAdd: cfg.hasAdd ? () => showCreateSheet(context) : null,
               dotOnProfile: unread > 0,
             ),
           ),
@@ -168,19 +170,21 @@ class _ShellState extends ConsumerState<Shell> with WidgetsBindingObserver {
 
 /// Tabs for one role: nav items, lazily built pages, and where the centre "+" sits (null = none).
 class ShellConfig {
-  const ShellConfig(this.items, this.pages, {this.addSlot});
+  const ShellConfig(this.items, this.pages, {this.addSlot, this.hasAdd = false});
   final List<NavItem> items;
   final List<Widget Function()> pages;
   final int? addSlot;
+  final bool hasAdd;
 }
 
-ShellConfig shellConfigFor(String role) {
+ShellConfig shellConfigFor(String role, [String lang = 'en']) {
+  String t(String k) => Strings.instance.get(k, lang);
   switch (role) {
     case 'admin':
       return ShellConfig(
         const [
-          NavItem(Icons.dashboard_rounded, 'Dashboard'),
-          NavItem(Icons.inbox_rounded, 'Issue queue'),
+          NavItem(Icons.dashboard_rounded, 'Overview'),
+          NavItem(Icons.inbox_rounded, 'Reports'),
           NavItem(Icons.verified_user_rounded, 'Foundations'),
           NavItem(Icons.person_rounded, 'Profile'),
         ],
@@ -194,8 +198,8 @@ ShellConfig shellConfigFor(String role) {
     case 'neta':
       return ShellConfig(
         const [
-          NavItem(Icons.location_city_rounded, 'Locality feed'),
-          NavItem(Icons.trending_up_rounded, 'Escalated'),
+          NavItem(Icons.hub_rounded, 'Community'),
+          NavItem(Icons.trending_up_rounded, 'Priority'),
           NavItem(Icons.diversity_3_rounded, 'Gather'),
           NavItem(Icons.person_rounded, 'Profile'),
         ],
@@ -223,11 +227,11 @@ ShellConfig shellConfigFor(String role) {
       );
     default:
       return ShellConfig(
-        const [
-          NavItem(Icons.home_rounded, 'Issues'),
-          NavItem(Icons.diversity_3_rounded, 'Gather'),
-          NavItem(Icons.volunteer_activism_rounded, 'Give'),
-          NavItem(Icons.person_rounded, 'Profile'),
+        [
+          NavItem(Icons.home_rounded, t('nav_home')),
+          NavItem(Icons.calendar_month_rounded, t('nav_calendar')),
+          NavItem(Icons.volunteer_activism_rounded, t('nav_give')),
+          NavItem(Icons.person_rounded, t('nav_profile')),
         ],
         [
           () => const FeedScreen(),
@@ -235,7 +239,7 @@ ShellConfig shellConfigFor(String role) {
           () => const DonationsScreen(),
           () => const ProfileScreen(),
         ],
-        addSlot: 2,
+        hasAdd: true,
       );
   }
 }

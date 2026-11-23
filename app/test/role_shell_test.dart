@@ -147,13 +147,13 @@ void main() {
   group('role shells', () {
     test('every role has its own tabs', () {
       List<String> labels(String r) => shellConfigFor(r).items.map((e) => e.label).toList();
-      expect(labels('citizen'), ['Issues', 'Gather', 'Give', 'Profile']);
-      expect(shellConfigFor('citizen').addSlot, 2);
-      expect(labels('admin'), ['Dashboard', 'Issue queue', 'Foundations', 'Profile']);
-      expect(labels('neta'), ['Locality feed', 'Escalated', 'Gather', 'Profile']);
+      expect(labels('citizen'), ['Home', 'Calendar', 'Give', 'Profile']);
+      expect(shellConfigFor('citizen').hasAdd, isTrue);
+      expect(labels('admin'), ['Overview', 'Reports', 'Foundations', 'Profile']);
+      expect(labels('neta'), ['Community', 'Priority', 'Gather', 'Profile']);
       expect(labels('foundation'), ['Donations', 'My claims', 'Gather', 'Profile']);
       for (final r in ['admin', 'neta', 'foundation']) {
-        expect(shellConfigFor(r).addSlot, isNull, reason: '$r has no create button');
+        expect(shellConfigFor(r).hasAdd, isFalse, reason: '$r has no create button');
       }
       for (final r in ['citizen', 'admin', 'neta', 'foundation']) {
         final c = shellConfigFor(r);
@@ -211,7 +211,7 @@ void main() {
       expect(find.byIcon(Icons.dashboard_rounded), findsOneWidget);
       expect(find.byIcon(Icons.inbox_rounded), findsOneWidget);
       expect(find.byIcon(Icons.verified_user_rounded), findsWidgets);
-      expect(find.text('Dashboard'), findsOneWidget);
+      expect(find.text('Overview'), findsWidgets);
       expect(find.byIcon(Icons.add_rounded), findsNothing);
       // tear down timers
       await t.pumpWidget(const SizedBox());
@@ -229,7 +229,7 @@ void main() {
       testWidgets('portal chooser and forms do not overflow @$w x1.15', (t) async {
         await pumpAuth(t, Size(w, 640), scale: 1.15);
         expect(t.takeException(), isNull);
-        for (final p in portals) {
+        for (final p in portals.where((e) => !e.staff)) {
           expect(find.text(p.title), findsOneWidget);
         }
         await t.tap(find.text('Foundation'));
@@ -244,6 +244,10 @@ void main() {
 
     testWidgets('demo quick-fill signs in through the chosen portal', (t) async {
       final fake = await pumpAuth(t, const Size(390, 844));
+      await t.ensureVisible(find.text('Platform team? Sign in'));
+      await t.tap(find.text('Platform team? Sign in'));
+      await t.pump(const Duration(milliseconds: 300));
+      await t.ensureVisible(find.text('Admin'));
       await t.tap(find.text('Admin'));
       await t.pump(const Duration(milliseconds: 500));
       await t.tap(find.textContaining('Fill demo admin'));
@@ -256,16 +260,16 @@ void main() {
 
     testWidgets('WRONG_PORTAL offers to switch to the right portal', (t) async {
       await pumpAuth(t, const Size(390, 844), wrong: 'neta');
-      await t.tap(find.text('Citizen'));
+      await t.tap(find.text('Volunteer'));
       await t.pump(const Duration(milliseconds: 500));
-      await t.tap(find.textContaining('Fill demo citizen'));
+      await t.tap(find.textContaining('Fill demo volunteer'));
       await t.pump();
       await t.tap(find.text('Sign in').last);
       await t.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('This is a Neta account'), findsOneWidget);
+      expect(find.textContaining('This is a Coordinator account'), findsOneWidget);
       await t.tap(find.text('Switch'));
       await t.pump(const Duration(milliseconds: 500));
-      expect(find.text('Neta portal'), findsOneWidget);
+      expect(find.text('Coordinator portal'), findsOneWidget);
     });
 
     testWidgets('foundation registration sends orgName and regNo', (t) async {
@@ -335,7 +339,7 @@ void main() {
         expect(find.text('RMC Officer'), findsOneWidget);
       });
 
-      testWidgets('citizen issues feed with sort chips renders @$w x1.15', (t) async {
+      testWidgets('citizen home dashboard renders @$w x1.15', (t) async {
         await pumpAt(t, Size(w, 800), const FeedScreen(), textScale: 1.15, overrides: [
           authProvider.overrideWith(() => _RoleAuth('citizen')),
           locationProvider.overrideWith(() => _NoLoc()),
@@ -348,18 +352,10 @@ void main() {
         ]);
         await t.pump(const Duration(milliseconds: 900));
         expect(t.takeException(), isNull);
-        expect(find.text('Top'), findsOneWidget);
-        expect(find.text('Issues'), findsOneWidget);
-        expect(find.text('In action'), findsOneWidget);
-        await t.tap(find.byTooltip('More'));
-        await t.pump(const Duration(milliseconds: 400));
-        expect(find.text('Leaders'), findsOneWidget);
-        expect(find.text('My activity'), findsOneWidget);
-        await t.tapAt(const Offset(5, 5));
-        await t.pump(const Duration(milliseconds: 400));
-        await t.tap(find.text('Top'));
-        await t.pump(const Duration(milliseconds: 400));
-        await t.tap(find.text('Newest'));
+        expect(find.text('Urgent right now'), findsOneWidget);
+        expect(find.text('Open needs'), findsOneWidget);
+        expect(find.text('Pledged'), findsOneWidget);
+        expect(find.text('Fulfilled'), findsOneWidget);
         await t.pump(const Duration(milliseconds: 400));
         expect(t.takeException(), isNull);
       });
