@@ -445,11 +445,29 @@ function seedSocial({ people, demo, demo2, insertIssue, history }) {
     about: 'A new trust working with school-age children in the bastis around Mowa. Registration documents have been submitted for verification.', address: 'Mowa, Raipur',
     lat: BASE.lat + 0.002, lng: BASE.lng + 0.017 });
 
+  const bal = mkAcct({ name: 'Sister Anita Dsouza', email: 'balvikas@bythepeople.app', password: 'bal1234', role: 'foundation', hue: 12,
+    orgName: 'Bal Vikas Anathalaya', regNo: 'CG/NGO/2008/0231', needs: ['food', 'clothes', 'stationery', 'medicine'],
+    about: 'An orphanage home to 54 children aged 4 to 17 in Sector 6, Bhilai. We run on small donations and need warm clothes, school supplies and regular meals.', address: 'Sector 6, Bhilai',
+    lat: BASE.lat - 0.058, lng: BASE.lng - 0.249 });
+  const vri = mkAcct({ name: 'Mohan Lal Verma', email: 'vridhashram@bythepeople.app', password: 'vri1234', role: 'foundation', hue: 195,
+    orgName: 'Shanti Vridhashram', regNo: 'CG/NGO/2005/0117', needs: ['food', 'clothes', 'medicine', 'volunteers'],
+    about: 'An old-age home for 38 residents in Durg, many with no family left. Evening company, medicines and warm blankets matter most to them.', address: 'Padmanabhpur, Durg',
+    lat: BASE.lat - 0.04, lng: BASE.lng - 0.31 });
+  const ras = mkAcct({ name: 'Farhat Siddiqui', email: 'rainbasera@bythepeople.app', password: 'ras1234', role: 'foundation', hue: 330,
+    orgName: 'Raen Basera Night Shelter', regNo: 'CG/NGO/2016/0654', needs: ['food', 'clothes', 'essentials'],
+    about: 'A 60-bed night shelter near Raipur railway station for the homeless and for families of patients at the nearby hospital. Open every night of the year.', address: 'Station Road, Raipur',
+    lat: BASE.lat - 0.017, lng: BASE.lng + 0.004 });
+  const drs = mkAcct({ name: 'Dr. Alka Pandey', email: 'drishti@bythepeople.app', password: 'drishti1234', role: 'foundation', hue: 255,
+    orgName: 'Drishti Blind Care Centre', regNo: 'CG/NGO/2012/0376', needs: ['stationery', 'medicine', 'volunteers', 'money'],
+    about: 'A residential centre for 40 visually impaired students in Raipur. We teach Braille and computer skills and always need scribes, audio books and volunteers.', address: 'Kota, Raipur',
+    lat: BASE.lat - 0.009, lng: BASE.lng - 0.022 });
+
   const setOrg = (id, topic) => {
     const [cover, avatar] = ph(topic, 0, 1);
     db.prepare('UPDATE users SET avatar_url=?, cover_url=? WHERE id=?').run(avatar || cover, cover, id);
   };
   setOrg(seva, 'food'); setOrg(anna, 'thali'); setOrg(hope, 'ngo');
+  setOrg(bal, 'toys'); setOrg(vri, 'shelter'); setOrg(ras, 'shelter'); setOrg(drs, 'books');
 
   // ----- issue extras: Telibandha ward (the demo neta's patch) with authority + escalation story -----
   const TC = { lat: BASE.lat + 0.011, lng: BASE.lng - 0.013 };
@@ -567,6 +585,18 @@ function seedSocial({ people, demo, demo2, insertIssue, history }) {
   mkG('health', { title: 'Free Health Checkup Camp, Telibandha Ward', type: 'health', d: [0.012, -0.014], address: 'Ward Office Grounds, Telibandha',
     description: 'Blood pressure, sugar, eye and dental screening for all residents, organised by the ward office with local doctors. No registration is needed.',
     start: day(12, 9), end: day(12, 14), org: neta, going: [people[0], people[5], people[8]], media: ph('health', 0, 1) });
+  mkG('orphan-visit', { title: 'Sunday Visit to Bal Vikas Anathalaya', type: 'shelter', d: [-0.058, -0.249], address: 'Bal Vikas Anathalaya, Sector 6, Bhilai',
+    description: 'Spend the afternoon with 54 children: storytelling, drawing and a shared snack. Please bring a storybook or a game, and wear something bright.',
+    start: day(3, 15), end: day(3, 18), org: bal, cap: 30, going: [people[0], people[3], people[6], people[8], people[10], demo, demo2], media: ph('shelter', 2) });
+  mkG('health-elder', { title: 'Free Health Camp for Senior Citizens, Durg', type: 'health', d: [-0.04, -0.31], address: 'Shanti Vridhashram, Padmanabhpur, Durg',
+    description: 'Blood pressure, sugar, eye and bone-density screening with volunteer doctors, plus free reading glasses for those who need them. Residents and neighbours above 60 are welcome.',
+    start: day(7, 9), end: day(7, 13), org: vri, cap: 120, going: [people[1], people[2], people[5], people[7], people[9], people[11], demo], media: ph('health', 2, 0) });
+  mkG('dinner-drive', { title: 'Dinner for 60 at Raen Basera Night Shelter', type: 'food_drive', d: [-0.017, 0.004], address: 'Raen Basera Night Shelter, Station Road, Raipur',
+    description: 'We are collecting cooked dinner for 60 residents and will serve it together at 8 pm. Volunteers are needed to pack, carry and serve between 6 and 9 pm.',
+    start: day(1, 18), end: day(1, 21), org: ras, cap: 20, going: [people[4], people[6], people[10], demo2], media: ph('food', 1) });
+  mkG('past-orphan', { title: 'Diwali Sweets at Bal Vikas Anathalaya', type: 'shelter', d: [-0.058, -0.249], address: 'Bal Vikas Anathalaya, Sector 6, Bhilai', status: 'completed',
+    description: 'Volunteers brought sweets, new clothes and fireworks-free sparklers for the children.', start: day(-12, 16), end: day(-12, 19), org: bal, going: [people[0], people[3], people[8], demo],
+    checked: [people[0], people[3], people[8], demo], impact: '54 children received new clothes and a festival meal.', media: ph('shelter', 0) });
   mkG('p-trees', { title: 'Plant 1,000 saplings along the Ring Road', type: 'plantation', d: [0.02, 0.02], address: 'Ring Road, Raipur', status: 'proposed',
     description: 'A proposal to line the Ring Road with shade trees such as neem and karanj. It needs 5 votes to go ahead.',
     start: day(20, 7), end: day(20, 11), org: people[7], club: clubGreen, votes: [people[1], people[2], people[3]], media: ph('plantation', 2) });
@@ -646,12 +676,77 @@ function seedSocial({ people, demo, demo2, insertIssue, history }) {
       status: 'distributed', by, claimedAt: t0 - (5 + n * 2) * DAY, etaAt: t0 - (5 + n * 2) * DAY + HOUR, pickedAt: t0 - (5 + n * 2) * DAY + 90 * MIN, distAt: t0 - (5 + n * 2) * DAY + 3 * HOUR,
       distNote: 'Served at a community kitchen to families from nearby bastis.', beneficiaries: ben, createdMinAgo: (5 + n * 2) * 24 * 60, expiresAt: t0 - (4 + n * 2) * DAY });
   });
+  mkD('rest-biryani', { kind: 'food', title: 'Restaurant surplus: veg pulao and dal tadka', quantity: '5 containers', servings: 55, veg: 'veg', preparedMinAgo: 25, createdMinAgo: 10,
+    d: [0.009, -0.006], address: 'Rajdhani Restaurant, Jaistambh Chowk, Raipur', pickup: 'Back entrance, ask for the manager.', donor: people[8], media: ph('thali', 3),
+    description: 'Freshly cooked for the lunch rush and not sold. Packed in covered steel containers.' });
+  mkD('caterer-dinner', { kind: 'food', title: 'Caterer surplus: paneer, roti and rice for 70', quantity: '7 trays', servings: 70, veg: 'veg', preparedMinAgo: 40, createdMinAgo: 15,
+    d: [-0.015, 0.006], address: 'Shree Caterers, Station Road, Raipur', pickup: 'Pickup before 9 pm from the loading bay.', donor: people[6], media: ph('food', 2),
+    description: 'Prepared for a corporate dinner with fewer guests than booked. Kept hot and covered.' });
+  mkD('blankets', { kind: 'clothes', title: 'Blankets and quilts, washed', quantity: '22 blankets', d: [-0.005, 0.01], address: 'Fafadih, Raipur', donor: people[3], media: ph('clothes', 2), createdMinAgo: 200,
+    description: 'Clean woollen blankets and a few quilts. Good for the night shelter or an old-age home.' });
+  mkD('meds', { kind: 'medicine', title: 'Unopened vitamins and first-aid supplies', quantity: '1 box', d: [0.004, 0.011], address: 'Shankar Nagar, Raipur', donor: people[5], media: ph('health', 0), createdMinAgo: 400,
+    description: 'Sealed and well within expiry: multivitamins, bandages and antiseptic. No prescription drugs.' });
+  mkD('stationery', { kind: 'stationery', title: 'Notebooks, pens and geometry boxes', quantity: '80 notebooks, 40 pens', d: [0.001, -0.016], address: 'Civil Lines, Raipur', donor: people[11], media: ph('books', 2), createdMinAgo: 800 });
+  mkD('dist-blankets', { kind: 'clothes', title: 'Winter blankets for the old-age home', quantity: '35 blankets', d: [0.007, 0.002], address: 'Samta Colony, Raipur', donor: people[0], media: ph('clothes', 0), status: 'distributed', by: vri,
+    claimedAt: t0 - 5 * DAY, etaAt: t0 - 5 * DAY + HOUR, pickedAt: t0 - 5 * DAY + 2 * HOUR, distAt: t0 - 4 * DAY, distNote: 'Every resident now has a blanket for the winter. Handed over with tea and a short bhajan evening.',
+    beneficiaries: 38, distMedia: ph('shelter', 1), createdMinAgo: 6 * 24 * 60 });
+  mkD('dist-dinner', { kind: 'food', title: 'Wedding dinner for the night shelter', quantity: '9 containers', servings: 90, veg: 'veg', preparedMinAgo: 12 * 60, d: [0.003, 0.007], address: 'Civil Lines Banquet, Raipur',
+    donor: people[4], media: ph('thali', 1), status: 'distributed', by: ras, claimedAt: t0 - 11 * HOUR, etaAt: t0 - 10 * HOUR, pickedAt: t0 - 10 * HOUR, distAt: t0 - 9 * HOUR,
+    distNote: 'Served hot to 85 residents and 12 families waiting at the hospital.', beneficiaries: 85, distMedia: ph('food', 1), createdMinAgo: 12 * 60, expiresAt: t0 - 8 * HOUR });
+  mkD('dist-stationery', { kind: 'stationery', title: 'Braille slates and notebooks', quantity: '25 sets', d: [-0.009, -0.02], address: 'Kota, Raipur', donor: demo, media: ph('books', 1), status: 'distributed', by: drs,
+    claimedAt: t0 - 9 * DAY, etaAt: t0 - 9 * DAY + HOUR, pickedAt: t0 - 9 * DAY + 2 * HOUR, distAt: t0 - 8 * DAY, distNote: 'Given to students in the Class 6 to 8 Braille batch.', beneficiaries: 25,
+    distMedia: ph('books', 0), createdMinAgo: 10 * 24 * 60 });
+  mkD('dist-bal', { kind: 'food', title: 'School canteen khichdi and fruit', quantity: '6 containers', servings: 60, veg: 'veg', preparedMinAgo: 30 * 60, d: [-0.058, -0.249], address: 'Sector 6, Bhilai',
+    donor: demo, media: ph('thali', 0), status: 'distributed', by: bal, claimedAt: t0 - 29 * HOUR, etaAt: t0 - 28 * HOUR, pickedAt: t0 - 28 * HOUR, distAt: t0 - 27 * HOUR,
+    distNote: 'Dinner for all 54 children at the anathalaya, with fruit for tomorrow.', beneficiaries: 54, distMedia: ph('food', 3), createdMinAgo: 30 * 60, expiresAt: t0 - 26 * HOUR });
   mkD('expired-food', { kind: 'food', title: 'Catering surplus nobody collected', quantity: '6 trays', servings: 50, veg: 'mixed', preparedMinAgo: 6 * 60, d: [0.007, -0.007],
     address: 'Sunder Nagar, Raipur', donor: people[7], status: 'expired', createdMinAgo: 6 * 60, expiresAt: t0 - 2 * HOUR });
   mkD('expired-books', { kind: 'books', title: 'Old exam guides', quantity: '30 books', d: [-0.006, 0.01], address: 'Gudhiyari, Raipur', donor: people[11], status: 'expired',
     createdMinAgo: 9 * 24 * 60, expiresAt: t0 - 2 * DAY });
   mkD('cancelled', { kind: 'food', title: 'Sweet boxes', quantity: '12 boxes', servings: 24, veg: 'veg', preparedMinAgo: 70, d: [0.003, 0.003], address: 'Tatibandh, Raipur', donor: people[0],
     status: 'cancelled', createdMinAgo: 70, expiresAt: t0 + 170 * MIN });
+
+  // ----- donor kinds: restaurants and caterers are surplus-food givers -----
+  db.prepare("UPDATE donations SET donor_kind='restaurant' WHERE id IN (?,?,?)").run(dIds['rest-biryani'], dIds.critical, dIds['claimed-seva']);
+  db.prepare("UPDATE donations SET donor_kind='caterer' WHERE id IN (?,?,?)").run(dIds['caterer-dinner'], dIds['dist-dinner'], dIds.pickedup);
+
+  // ----- needs: what verified foundations are asking for, with pledged progress -----
+  const mkN = (o) => {
+    const id = Number(db.prepare(`INSERT INTO needs (foundation_id,kind,title,quantity,deadline_at,status,created_at,urgency,description,target_qty,pledged_qty,unit)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(o.f, o.kind, o.title, o.quantity, o.deadline ?? null, o.status || 'open', t0 - (o.ageH ?? 12) * HOUR,
+      o.urgency || 'normal', o.description || '', o.target || 0, o.base || 0, o.unit || '').lastInsertRowid);
+    (o.pledges || []).forEach(([u, qty, note], k) => db.prepare('INSERT OR IGNORE INTO need_pledges (need_id,user_id,note,created_at,qty) VALUES (?,?,?,?,?)')
+      .run(id, u, note || null, t0 - (k + 1) * 3 * HOUR, qty));
+    return id;
+  };
+  const nId = {};
+  nId.blankets = mkN({ f: vri, kind: 'clothes', title: '40 blankets by Friday', quantity: '40 blankets', unit: 'blankets', target: 40, base: 12, urgency: 'critical', deadline: day(3, 17), ageH: 20,
+    description: 'Nights in Durg are dropping below 10 degrees and 14 residents still sleep under thin sheets. Clean, used blankets are fine.',
+    pledges: [[people[3], 10, 'I can send 10 from the shop on Thursday'], [people[5], 4]] });
+  nId.dinner = mkN({ f: ras, kind: 'food', title: 'Dinner for 60 residents', quantity: '60 plates', unit: 'plates', target: 60, base: 0, urgency: 'high', deadline: day(1, 20), ageH: 6,
+    description: 'Our kitchen gas cylinder ran out and the refill is delayed. Cooked veg dinner delivered by 8 pm would feed everyone tonight.',
+    pledges: [[people[6], 30, 'Our caterer can send 30 plates']] });
+  nId.clothes = mkN({ f: bal, kind: 'clothes', title: 'Winter clothes for 54 children', quantity: '54 sets', unit: 'sets', target: 54, base: 20, urgency: 'high', deadline: day(8, 12), ageH: 48,
+    description: 'Sweaters, caps and socks for children aged 4 to 17. Sizes are needed across the range, and new or gently used are both welcome.',
+    pledges: [[people[0], 15], [demo2, 6, 'Collecting from my apartment society']] });
+  nId.meds = mkN({ f: vri, kind: 'medicine', title: 'Monthly BP and diabetes medicines', quantity: '30 strips', unit: 'strips', target: 30, base: 8, urgency: 'critical', deadline: day(2, 18), ageH: 30,
+    description: 'Amlodipine and metformin for 22 residents. Please send only sealed strips with at least six months to expiry, and a pharmacy bill if you have one.',
+    pledges: [[people[8], 8, 'I will buy these at the Jaistambh pharmacy']] });
+  nId.stationery = mkN({ f: bal, kind: 'stationery', title: 'Notebooks and pens for the new term', quantity: '150 notebooks', unit: 'notebooks', target: 150, base: 40, urgency: 'normal', deadline: day(14, 12), ageH: 72,
+    description: 'The new session starts in two weeks. Ruled notebooks, pens, pencils and geometry boxes for classes 1 to 10.',
+    pledges: [[people[11], 80, 'Posting from the Civil Lines stock'], [demo, 20]] });
+  nId.scribes = mkN({ f: drs, kind: 'volunteers', title: '6 volunteers to read and scribe on Saturday', quantity: '6 people', unit: 'people', target: 6, base: 2, urgency: 'high', deadline: day(5, 8), ageH: 36,
+    description: 'Our students have a mock exam on Saturday morning and need scribes and readers for three hours. No special training needed.',
+    pledges: [[people[7], 1], [people[9], 1]] });
+  nId.money = mkN({ f: drs, kind: 'money', title: 'Rs 25,000 for 10 audio-book players', quantity: 'Rs 25,000', unit: 'rupees', target: 25000, base: 9000, urgency: 'normal', deadline: day(20, 12), ageH: 100,
+    description: 'Each player costs Rs 2,500 and carries a full term of audio textbooks. Any amount helps and we publish every receipt.',
+    pledges: [[people[2], 5000, 'Happy to cover two players'], [people[10], 2000]] });
+  nId.food = mkN({ f: seva, kind: 'food', title: 'Rice, dal and oil for the community kitchen', quantity: '100 kg', unit: 'kg', target: 100, base: 35, urgency: 'normal', deadline: day(6, 17), ageH: 60,
+    description: 'Stock for the next fortnight of hot meals at the Shankar Nagar kitchen.', pledges: [[people[0], 25], [people[4], 15]] });
+  nId.stationeryAnna = mkN({ f: anna, kind: 'essentials', title: 'Steel plates and glasses for evening meals', quantity: '120 sets', unit: 'sets', target: 120, base: 30, urgency: 'low', ageH: 90,
+    description: 'We are replacing disposable plates with steel ones at all four serving points.', pledges: [[people[1], 20]] });
+  nId.done = mkN({ f: ras, kind: 'clothes', title: '30 warm jackets for night-shelter guests', quantity: '30 jackets', unit: 'jackets', target: 30, base: 30, urgency: 'high', status: 'fulfilled', ageH: 200,
+    description: 'Fulfilled last week, thank you to everyone who pledged.', pledges: [[demo, 10], [people[5], 20]] });
 
   // ----- likes -----
   const like = (type, id, u) => db.prepare('INSERT OR IGNORE INTO likes (target_type,target_id,user_id,created_at) VALUES (?,?,?,?)').run(type, id, u, t0 - Math.floor(rnd() * 5 * DAY));
@@ -711,6 +806,9 @@ function seedSocial({ people, demo, demo2, insertIssue, history }) {
   nt(seva, 'donation', 'Donation near you', 'Winter jackets and sweaters is available', 'donation', dIds.jackets, 4);
   nt(anna, 'donation', 'Donation near you', 'Wedding leftovers: dal, rice and sabzi is available and will not keep for long', 'donation', dIds.critical, 0.5);
   nt(anna, 'donation', 'Donation near you', 'Birthday party snacks and sweets is available', 'donation', dIds.snacks, 1);
+  nt(vri, 'need_pledge', 'Someone pledged to your need', 'Poonam Yadav pledged to help with "40 blankets by Friday"', 'need', nId.blankets, 5);
+  nt(ras, 'need_pledge', 'Someone pledged to your need', 'Ramesh Chandrakar pledged to help with "Dinner for 60 residents"', 'need', nId.dinner, 2);
+  nt(seva, 'donation', 'Surplus food near you', 'Restaurant surplus: veg pulao and dal tadka is available and will not keep for long', 'donation', dIds['rest-biryani'], 0.2);
   nt(demo, 'authority_update', 'Authority says it is fixed', 'Please verify "Burst water pipeline on Marine Drive" if you are nearby', 'issue', i4, 6, i4);
   nt(demo, 'donation_distributed', 'Your donation made a difference', '"Children\'s school uniforms" reached 28 people via Seva Sankalp Foundation. You earned 10 points.', 'donation', dIds['dist-clothes'], 48);
   nt(demo, 'rsvp', 'New RSVP', 'Kiran Mahant is going to "Telibandha Lake Clean-up"', 'gathering', gids['past-lake'], 200);
@@ -728,7 +826,7 @@ function seedSocial({ people, demo, demo2, insertIssue, history }) {
 
   // points + badge evaluation for check-ins / donations / comments
   const pts = { [demo]: 15 * 4 + 10 * 2 + 20, [people[1]]: 15 * 4 + 10 * 5 };
-  for (const u of [demo, demo2, ...people, neta, admin, seva, anna, hope]) award(u, pts[u] || 0, []);
+  for (const u of [demo, demo2, ...people, neta, admin, seva, anna, hope, bal, vri, ras, drs]) award(u, pts[u] || 0, []);
   db.prepare('UPDATE users SET points = points + 120 WHERE id IN (?,?)').run(seva, anna);
 }
 
@@ -740,7 +838,9 @@ if (process.argv[1] && process.argv[1].endsWith('seed.js')) {
   console.log(`Seeded: ${c('areas', "WHERE kind='region'")} regions, ${c('areas', "WHERE kind='state'")} states, ${c('areas', "WHERE kind='city'")} cities, ${c('areas', "WHERE kind='ward'")} wards`);
   console.log(`        ${c('politicians')} leaders, ${c('users')} users, ${c('issues')} issues`);
   console.log(`        ${c('gatherings')} gatherings, ${c('clubs')} clubs, ${c('donations')} donations, ${c('comments')} comments`);
+  console.log('SevaLink: needs=' + c('needs') + ', pledges=' + c('need_pledges') + ', foundations=' + c('users', "WHERE role='foundation'"));
   console.log('Demo logins: demo@bythepeople.app / demo1234 (citizen), admin@bythepeople.app / admin1234,');
   console.log('             neta@bythepeople.app / neta1234, seva@bythepeople.app / seva1234,');
-  console.log('             annapurna@bythepeople.app / anna1234, newhope@bythepeople.app / hope1234 (unverified)');
+  console.log('             annapurna@bythepeople.app / anna1234, newhope@bythepeople.app / hope1234 (unverified),');
+  console.log('             balvikas@ / bal1234, vridhashram@ / vri1234, rainbasera@ / ras1234, drishti@ / drishti1234 (all @bythepeople.app, verified foundations)');
 }
