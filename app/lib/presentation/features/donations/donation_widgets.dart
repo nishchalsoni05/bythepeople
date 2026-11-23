@@ -12,7 +12,9 @@ import 'package:by_the_people/presentation/providers/donation_providers.dart';
 import 'package:by_the_people/presentation/providers/session_providers.dart' show authProvider;
 import 'package:by_the_people/presentation/providers/gathering_providers.dart' show Done;
 import 'package:by_the_people/presentation/widgets/map.dart' show MapItem;
+import 'package:by_the_people/presentation/widgets/cards.dart';
 import 'package:by_the_people/presentation/widgets/skeleton.dart';
+import 'package:by_the_people/presentation/widgets/stacked_card.dart';
 import 'package:by_the_people/presentation/widgets/ui.dart';
 
 class DonationKindStyle {
@@ -22,14 +24,18 @@ class DonationKindStyle {
   const DonationKindStyle(this.icon, this.a, this.b, this.label);
 }
 
+// Monochrome: every kind shares the same grey chip; the icon tells them apart.
+const _kindFill = C.muted;
+const _kindMark = Color(0xFF8A8A90);
+
 const donationKinds = <String, DonationKindStyle>{
-  'food': DonationKindStyle(Icons.restaurant_rounded, Color(0xFFFFE6A8), Color(0xFFFFB347), 'Food'),
-  'clothes': DonationKindStyle(Icons.checkroom_rounded, Color(0xFFD8D0F0), Color(0xFFA99BD6), 'Clothes'),
-  'bottles': DonationKindStyle(Icons.local_drink_rounded, Color(0xFFD6ECFA), Color(0xFF8CC8F0), 'Bottles'),
-  'books': DonationKindStyle(Icons.menu_book_rounded, Color(0xFFFAD3D8), Color(0xFFF4B8C0), 'Books'),
-  'toys': DonationKindStyle(Icons.toys_rounded, Color(0xFFE4EEB8), Color(0xFFC8DB7A), 'Toys'),
-  'essentials': DonationKindStyle(Icons.shopping_basket_rounded, Color(0xFFD9F0E3), Color(0xFFA6D9B6), 'Essentials'),
-  'other': DonationKindStyle(Icons.inventory_2_rounded, Color(0xFFE6E4DE), Color(0xFFCFCBC0), 'Other'),
+  'food': DonationKindStyle(Icons.restaurant_rounded, _kindFill, _kindMark, 'Food'),
+  'clothes': DonationKindStyle(Icons.checkroom_rounded, _kindFill, _kindMark, 'Clothes'),
+  'bottles': DonationKindStyle(Icons.local_drink_rounded, _kindFill, _kindMark, 'Bottles'),
+  'books': DonationKindStyle(Icons.menu_book_rounded, _kindFill, _kindMark, 'Books'),
+  'toys': DonationKindStyle(Icons.toys_rounded, _kindFill, _kindMark, 'Toys'),
+  'essentials': DonationKindStyle(Icons.shopping_basket_rounded, _kindFill, _kindMark, 'Essentials'),
+  'other': DonationKindStyle(Icons.inventory_2_rounded, _kindFill, _kindMark, 'Other'),
 };
 
 DonationKindStyle kindStyle(String kind) => donationKinds[kind] ?? donationKinds['other']!;
@@ -46,10 +52,10 @@ const _statusText = {
 String donationStatusLabel(String s) => _statusText[s] ?? s;
 
 ({Color bg, Color fg, String label}) freshnessLook(String f) => switch (f) {
-  'critical' => (bg: C.ember, fg: Colors.white, label: 'Critical'),
-  'soon' => (bg: const Color(0xFFFFE9CC), fg: const Color(0xFF8A4B00), label: 'Use soon'),
+  'critical' => (bg: C.ink, fg: Colors.white, label: 'Critical'),
+  'soon' => (bg: C.ink.withValues(alpha: 0.08), fg: C.ink, label: 'Use soon'),
   'expired' => (bg: C.muted, fg: C.inkSoft, label: 'Expired'),
-  _ => (bg: const Color(0xFFE3F3E8), fg: const Color(0xFF1E6B3E), label: 'Fresh'),
+  _ => (bg: C.muted, fg: C.ink, label: 'Fresh'),
 };
 
 /// "2h 05m", "12:41" (under an hour), "Expired". [ms] is the time left.
@@ -133,23 +139,27 @@ class FreshnessChip extends StatelessWidget {
         final text = f == 'expired'
             ? 'Expired'
             : (d.isFood ? '${look.label} · ${countdownText(left)}' : 'Lists for ${countdownText(left)}');
-        return Container(
-          padding: EdgeInsets.symmetric(horizontal: big ? 10 : 8, vertical: big ? 6 : 4),
-          decoration: BoxDecoration(color: look.bg, borderRadius: BorderRadius.circular(8)),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                f == 'critical' ? Icons.local_fire_department_rounded : (f == 'expired' ? Icons.timer_off_rounded : Icons.timer_outlined),
-                size: big ? 15 : 12,
-                color: look.fg,
+        // Status as a small dot plus text (no pill). The dot carries urgency; the text is the label.
+        final dot = switch (f) {
+          'critical' || 'soon' => C.ember,
+          'expired' => C.inkSoft,
+          _ => C.ink,
+        };
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 6, height: 6, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                key: const Key('freshness-text'),
+                style: ui(big ? 13 : 12, color: f == 'expired' ? C.inkSoft : C.ink, w: 600),
               ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, key: const Key('freshness-text'), style: ui(big ? 13 : 12, color: look.fg, w: 600)),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -260,90 +270,151 @@ MapItem donationMapItem(Donation d) {
 }
 
 class DonationCard extends ConsumerWidget {
-  const DonationCard({super.key, required this.d, required this.onTap, this.onClaim});
+  const DonationCard({super.key, required this.d, required this.onTap, this.onClaim, this.hero = false});
   final Donation d;
   final VoidCallback onTap;
 
   /// Shown as a quick button when the viewer can claim.
   final VoidCallback? onClaim;
 
+  /// The lead card of a list gets the two-layer stacked look; the rest are plain shadowed cards.
+  final bool hero;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final d = effectiveDonation(ref, this.d);
     final k = kindStyle(d.kind);
-    final meta = <String>[if (d.quantity.isNotEmpty) d.quantity, if (d.servings != null) '${d.servings} servings'].join(' · ');
-    final badge = d.isActive && d.isAvailable ? FreshnessChip(d) : CoverBadge(donationStatusLabel(d.status));
-    return FeedCardShell(
-      onTap: onTap,
-      dim: d.isDead,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CoverImage(media: d.media, icon: k.icon, height: d.media.isEmpty ? 84 : 150, badge: badge),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PersonLine(d.donor, size: 22, sub: d.claimedBy != null ? 'Claimed by ${d.claimedBy!.label}' : null),
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (d.isFood && d.veg != 'na') Padding(padding: const EdgeInsets.only(top: 3, right: 8), child: VegDot(d.veg)),
-                    Expanded(child: Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: ui(16, w: 600, h: 1.3))),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 4,
-                  children: [
-                    InfoChip(k.icon, d.kindLabel),
-                    if (meta.isNotEmpty) InfoChip(Icons.inventory_2_outlined, meta),
-                    if (d.address.isNotEmpty || d.distanceKm != null)
-                      InfoChip(Icons.place_outlined, [if (d.address.isNotEmpty) d.address, if (d.distanceKm != null) km(d.distanceKm)].join(' · ')),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Padding(padding: EdgeInsets.only(top: 8), child: Divider(height: 1, color: C.line)),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
-            child: Row(
-              children: [
-                ActionBtn(
-                  icon: d.likedByMe ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  count: d.likeCount,
-                  color: d.likedByMe ? C.ember : null,
-                  onTap: () => toggleDonationLike(context, ref, d),
-                ),
-                ActionBtn(icon: Icons.chat_bubble_outline_rounded, count: d.commentCount, onTap: () => openDonationComments(context, ref, d)),
-                const Spacer(),
-                if (onClaim != null && d.canClaim)
-                  GestureDetector(
-                    onTap: onClaim,
-                    child: Container(
-                      height: 34,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(10)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.volunteer_activism_rounded, size: 16, color: Colors.white),
-                          const SizedBox(width: 6),
-                          Text('Claim', style: ui(13, color: Colors.white, w: 600)),
-                        ],
-                      ),
+    final live = d.isActive && d.isAvailable;
+    final line = [
+      d.kindLabel,
+      if (d.quantity.isNotEmpty) d.quantity,
+      if (d.servings != null) '${d.servings} servings',
+      if (d.address.isNotEmpty) d.address,
+      if (d.distanceKm != null) km(d.distanceKm),
+    ].join(' · ');
+    final showStatus = live || d.isFromFoundation;
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (d.media.isNotEmpty)
+          CoverImage(media: d.media, icon: k.icon, height: 150, badge: live ? null : CoverBadge(donationStatusLabel(d.status))),
+        Padding(
+          padding: const EdgeInsets.all(R.cardInset),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PersonLine(d.donor, size: 22, sub: d.claimedBy != null ? 'Claimed by ${d.claimedBy!.label}' : null),
+              const SizedBox(height: R.unit * 1.5),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconChip(k.icon),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (d.isFood && d.veg != 'na') Padding(padding: const EdgeInsets.only(top: 2, right: 6), child: VegDot(d.veg)),
+                            Expanded(child: Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: titleStyle())),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: metaStyle()),
+                      ],
                     ),
                   ),
+                ],
+              ),
+              if (showStatus) ...[
+                const SizedBox(height: R.unit * 1.5),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  children: [
+                    if (live && (d.liveFreshness() == 'critical' || d.liveFreshness() == 'soon'))
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: d.liveFreshness() == 'critical' ? C.ink : C.ink.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.bolt_rounded, size: 13, color: d.liveFreshness() == 'critical' ? Colors.white : C.ink),
+                          const SizedBox(width: 3),
+                          Text(d.liveFreshness() == 'critical' ? 'Urgent' : 'Go soon',
+                              style: ui(11.5, color: d.liveFreshness() == 'critical' ? Colors.white : C.ink, w: 700)),
+                        ]),
+                      ),
+                    if (live) FreshnessChip(d),
+                    if (d.isFromFoundation) const StatusDot(color: C.ember, label: 'From foundation'),
+                  ],
+                ),
               ],
-            ),
+              const SizedBox(height: R.unit),
+              Row(
+                children: [
+                  ActionBtn(
+                    icon: d.likedByMe ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    count: d.likeCount,
+                    color: d.likedByMe ? C.ember : null,
+                    onTap: () => toggleDonationLike(context, ref, d),
+                  ),
+                  ActionBtn(icon: Icons.chat_bubble_outline_rounded, count: d.commentCount, onTap: () => openDonationComments(context, ref, d)),
+                  const Spacer(),
+                  if (onClaim != null && d.canClaim)
+                    TapScale(
+                      onTap: onClaim,
+                      scale: 0.94,
+                      child: Container(
+                        height: 38,
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        decoration: BoxDecoration(
+                          color: C.ink,
+                          borderRadius: BorderRadius.circular(19),
+                          boxShadow: [BoxShadow(color: C.ink.withValues(alpha: 0.22), blurRadius: 12, offset: const Offset(0, 4))],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.volunteer_activism_rounded, size: 16, color: Colors.white),
+                            const SizedBox(width: 6),
+                            Text('Claim', style: ui(13, color: Colors.white, w: 600)),
+                          ],
+                        ),
+                      ),
+                    )
+                  else if (d.claimedByMe && d.status == 'claimed')
+                    Container(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(color: C.muted, borderRadius: BorderRadius.circular(17)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.check_circle_rounded, size: 15, color: C.ink),
+                        const SizedBox(width: 6),
+                        Text('Claimed by you', style: ui(12.5, w: 600)),
+                      ]),
+                    ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
+    if (hero) {
+      return StackedCard(
+        layers: 2,
+        offset: 6,
+        inset: 10,
+        onTap: onTap,
+        padding: EdgeInsets.zero,
+        child: Opacity(opacity: d.isDead ? 0.6 : 1, child: body),
+      );
+    }
+    return SurfaceCard(onTap: onTap, dim: d.isDead, child: body);
   }
 }
 
@@ -357,26 +428,20 @@ class DonationListSkeleton extends StatelessWidget {
         for (var i = 0; i < count; i++)
           Container(
             margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
             clipBehavior: Clip.antiAlias,
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SkeletonBox(height: 140, radius: 0),
-                Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SkeletonBox(width: 110, height: 12),
-                      SizedBox(height: 10),
-                      SkeletonBox(height: 16),
-                      SizedBox(height: 8),
-                      SkeletonBox(width: 150, height: 12),
-                    ],
-                  ),
-                ),
-              ],
+            child: const Padding(
+              padding: EdgeInsets.all(R.cardInset),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBox(width: 110, height: 12),
+                  SizedBox(height: 10),
+                  SkeletonBox(height: 16),
+                  SizedBox(height: 8),
+                  SkeletonBox(width: 150, height: 12),
+                ],
+              ),
             ),
           ),
       ],

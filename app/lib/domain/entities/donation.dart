@@ -21,6 +21,22 @@ class Distribution {
   const Distribution(this.note, this.beneficiaries, this.media);
 }
 
+/// Photos and a note from the foundation once the donation reached people. Present only after distribution.
+class DonationProof {
+  final List<String> media;
+  final String note;
+  final int beneficiaries;
+  final int? at;
+  const DonationProof({this.media = const [], this.note = '', this.beneficiaries = 0, this.at});
+
+  factory DonationProof.fromJson(Map<String, dynamic> j) => DonationProof(
+        media: ((j['media'] ?? const []) as List).map((e) => '$e').toList(),
+        note: (j['note'] ?? '').toString(),
+        beneficiaries: ((j['beneficiaries'] ?? 0) as num).toInt(),
+        at: (j['at'] as num?)?.toInt(),
+      );
+}
+
 class Claimer {
   final int id, hue;
   final String name;
@@ -42,6 +58,9 @@ class Donation {
   final Claimer? claimedBy;
   final Distribution? distribution;
   final List<DonationEvent> timeline;
+  /// 'donor' for citizens, 'foundation' when a verified foundation listed the surplus.
+  final String donorKind;
+  final DonationProof? proof;
 
   const Donation({
     required this.id, required this.kind, required this.kindLabel, required this.title, this.description = '',
@@ -51,6 +70,7 @@ class Donation {
     this.claimedAt, this.etaAt, this.lockExpiresAt, this.pickedUpAt, this.distributedAt, this.distribution,
     this.distanceKm, this.canClaim = false, this.claimedByMe = false, this.likeCount = 0, this.likedByMe = false,
     this.commentCount = 0, this.shareCount = 0, this.shareText = '', this.publicUrl, this.timeline = const [],
+    this.donorKind = 'donor', this.proof,
   });
 
   factory Donation.fromJson(Map<String, dynamic> j) {
@@ -101,8 +121,12 @@ class Donation {
       shareText: (j['shareText'] ?? '').toString(),
       publicUrl: j['publicUrl'] as String?,
       timeline: ((j['timeline'] ?? const []) as List).map((e) => DonationEvent.fromJson(Map<String, dynamic>.from(e))).toList(),
+      donorKind: (j['donorKind'] ?? 'donor').toString(),
+      proof: j['proof'] is Map ? DonationProof.fromJson(Map<String, dynamic>.from(j['proof'])) : null,
     );
   }
+
+  bool get isFromFoundation => donorKind == 'foundation';
 
   bool get isFood => kind == 'food';
   bool get isAvailable => status == 'available';

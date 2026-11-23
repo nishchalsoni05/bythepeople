@@ -9,6 +9,7 @@ import 'package:by_the_people/presentation/features/gatherings/welfare_common.da
 import 'package:by_the_people/presentation/providers/donation_providers.dart';
 import 'package:by_the_people/presentation/providers/session_providers.dart';
 import 'package:by_the_people/presentation/widgets/map.dart';
+import 'package:by_the_people/presentation/widgets/media.dart';
 import 'package:by_the_people/presentation/widgets/skeleton.dart';
 import 'package:by_the_people/presentation/widgets/ui.dart';
 
@@ -113,7 +114,7 @@ class _DonationDetailScreenState extends ConsumerState<DonationDetailScreen> wit
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: WHeader(title: 'Donation'),
+                  child: WHeader(title: 'Surplus'),
                 ),
                 ErrorState(error: e, onRetry: () => ref.invalidate(donationProvider(widget.id))),
               ],
@@ -139,9 +140,9 @@ class _DonationDetailScreenState extends ConsumerState<DonationDetailScreen> wit
         await ref.read(donationProvider(d.id).future);
       },
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16, pad.top + 4, 16, pad.bottom + 40),
+        padding: EdgeInsets.fromLTRB(16, pad.top + 4, 16, pad.bottom + 110),
         children: [
-          WHeader(title: 'Donation', trailing: Tag(donationStatusLabel(d.status))),
+          WHeader(title: 'Surplus', trailing: Tag(donationStatusLabel(d.status))),
           const SizedBox(height: 8),
           if (d.media.isNotEmpty) ...[
             SizedBox(
@@ -167,13 +168,13 @@ class _DonationDetailScreenState extends ConsumerState<DonationDetailScreen> wit
             ],
           ),
           const SizedBox(height: 10),
-          Text(d.title, style: ui(20, w: 600, h: 1.3)),
+          Text(d.title, style: ui(20, w: 650, h: 1.25)),
           if (d.description.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(d.description, style: ui(14, color: C.ink.withValues(alpha: 0.85), h: 1.5)),
           ],
           const SizedBox(height: 14),
-          WCard(
+          _Section(
             child: Column(
               children: [
                 if (d.quantity.isNotEmpty) _Row(Icons.inventory_2_outlined, 'Quantity', d.quantity),
@@ -197,18 +198,31 @@ class _DonationDetailScreenState extends ConsumerState<DonationDetailScreen> wit
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: () => openInMaps(d.lat, d.lng, label: d.title, directions: true),
-              icon: const Icon(Icons.directions_rounded, size: 18),
-              label: const Text('Directions'),
-              style: OutlinedButton.styleFrom(foregroundColor: C.ink, side: const BorderSide(color: C.line), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: DecoratedBox(
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: C.shadowSoft),
+              child: TextButton.icon(
+                onPressed: () => openInMaps(d.lat, d.lng, label: d.title, directions: true),
+                icon: const Icon(Icons.directions_rounded, size: 18),
+                label: const Text('Directions'),
+                style: TextButton.styleFrom(
+                  backgroundColor: C.surface,
+                  foregroundColor: C.ink,
+                  textStyle: ui(14, w: 650),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
           _StatusCard(d: d),
-          if (d.distribution != null) ...[
+          if (d.proof != null) ...[
             const SizedBox(height: 12),
-            WCard(
+            _DeliveredCard(proof: d.proof!),
+          ],
+          if (d.distribution != null && d.proof == null) ...[
+            const SizedBox(height: 12),
+            _Section(
               color: C.mint.withValues(alpha: 0.5),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +253,7 @@ class _DonationDetailScreenState extends ConsumerState<DonationDetailScreen> wit
           ],
           ..._actions(d, isFoundation, verified, isDonor),
           const SizedBox(height: 12),
-          WCard(
+          _Section(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
             child: EngagementBar(
               likes: d.likeCount,
@@ -253,8 +267,8 @@ class _DonationDetailScreenState extends ConsumerState<DonationDetailScreen> wit
           ),
           if (d.timeline.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Padding(padding: const EdgeInsets.only(left: 2, bottom: 8), child: Text('Timeline', style: ui(14, w: 600))),
-            WCard(
+            Padding(padding: const EdgeInsets.only(left: 4, bottom: 8), child: Text('Timeline', style: titleStyle())),
+            _Section(
               child: Column(
                 children: [for (var i = 0; i < d.timeline.length; i++) _TimelineRow(d.timeline[i], last: i == d.timeline.length - 1)],
               ),
@@ -358,6 +372,21 @@ class _DonationDetailScreenState extends ConsumerState<DonationDetailScreen> wit
   }
 }
 
+/// Section card for the detail screen: white, shared two-layer shadow, 24dp radius, 16dp inset.
+class _Section extends StatelessWidget {
+  const _Section({required this.child, this.padding = const EdgeInsets.all(R.cardInset), this.color = C.surface});
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: padding,
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
+        child: child,
+      );
+}
+
 class _Row extends StatelessWidget {
   const _Row(this.icon, this.label, this.value);
   final IconData icon;
@@ -365,7 +394,7 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: R.unit + 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -397,7 +426,7 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = _steps.indexWhereStatus(d.status);
-    return WCard(
+    return _Section(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -524,6 +553,42 @@ class _TimelineRow extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Proof of delivery: photos, the foundation's note and how many people were reached.
+class _DeliveredCard extends StatelessWidget {
+  const _DeliveredCard({required this.proof});
+  final DonationProof proof;
+
+  @override
+  Widget build(BuildContext context) {
+    final at = proof.at;
+    return _Section(
+      color: C.mint.withValues(alpha: 0.5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.check_circle_rounded, size: 18, color: C.ink),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Delivered', style: ui(14, w: 600))),
+            if (at != null) Text(fmtDate(at), style: ui(12.5, color: C.inkSoft, w: 600)),
+          ]),
+          if (proof.media.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            MediaGallery(media: proof.media, height: 180, radius: 14, fallbackIcon: Icons.photo_outlined),
+          ],
+          if (proof.note.isNotEmpty) ...[const SizedBox(height: 10), Text(proof.note, style: ui(14, h: 1.45))],
+          const SizedBox(height: 10),
+          Row(children: [
+            const Icon(Icons.groups_outlined, size: 18, color: C.inkSoft),
+            const SizedBox(width: 8),
+            Text('${proof.beneficiaries} ${proof.beneficiaries == 1 ? 'person' : 'people'} reached', style: ui(13.5, w: 600)),
+          ]),
         ],
       ),
     );

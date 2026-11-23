@@ -125,11 +125,18 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
   @override
   Widget build(BuildContext context) {
     final expiry = _food ? _prepared.add(Duration(hours: _shelfHours)) : DateTime.now().add(const Duration(days: 7));
+    final isFoundation = ref.watch(roleProvider) == 'foundation';
     return SheetBody(
-      title: 'List a donation',
-      subtitle: 'Surplus food, clothes and more reach people who need them, through verified foundations.',
+      title: isFoundation ? 'Share surplus' : 'List a donation',
+      subtitle: isFoundation
+          ? 'Surplus from your organisation. Only other verified foundations can claim it.'
+          : 'Surplus food, clothes and more reach people who need them, through verified foundations.',
       children: [
-        Text('What are you giving?', style: ui(12.5, color: C.inkSoft, w: 600)),
+        if (isFoundation) ...[
+          const InfoBanner(icon: Icons.handshake_outlined, text: 'Listed under your organisation. Other verified foundations are alerted first.'),
+          const SizedBox(height: 16),
+        ],
+        Text('What are you giving?', style: metaStyle()),
         const SizedBox(height: 8),
         SizedBox(
           height: 44,
@@ -157,7 +164,7 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
           maxLength: 80,
           fieldKey: const Key('d-title'),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         WField(
           label: 'Quantity',
           controller: _qty,
@@ -166,7 +173,7 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
           fieldKey: const Key('d-qty'),
         ),
         if (_food) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           WField(
             label: 'Servings',
             controller: _servings,
@@ -176,7 +183,7 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
             fieldKey: const Key('d-servings'),
           ),
           const SizedBox(height: 16),
-          Text('Food type', style: ui(12.5, color: C.inkSoft, w: 600)),
+          Text('Food type', style: metaStyle()),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -187,7 +194,7 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          Text('When was it prepared?', style: ui(12.5, color: C.inkSoft, w: 600)),
+          Text('When was it prepared?', style: metaStyle()),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -211,7 +218,7 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          Text('Safe to eat for', style: ui(12.5, color: C.inkSoft, w: 600)),
+          Text('Safe to eat for', style: metaStyle()),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -225,7 +232,7 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
           Container(
             key: const Key('expiry-preview'),
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: C.amber.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(18)),
+            decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16), boxShadow: C.shadowSoft),
             child: Row(
               children: [
                 const Icon(Icons.timer_outlined, size: 19),
@@ -268,9 +275,9 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
           const SizedBox(height: 12),
           Text('Listed for 7 days (until ${fmtDate(expiry.millisecondsSinceEpoch)}).', style: ui(12.5, color: C.inkSoft)),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         WField(label: 'Details (optional)', controller: _desc, lines: 2, hint: 'Condition, sizes, anything to know', maxLength: 400),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         WField(
           label: 'Pickup address',
           controller: _address,
@@ -280,13 +287,13 @@ class _CreateDonationSheetState extends ConsumerState<CreateDonationSheet> {
         ),
         const SizedBox(height: 8),
         LocationField(value: _picked, onChanged: (v) => setState(() => _picked = v), address: _address, title: 'Where is the pickup?'),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         WField(label: 'Pickup note (optional)', controller: _pickup, hint: 'Gate, floor, who to ask for', maxLength: 140),
         const SizedBox(height: 16),
-        Text('Photo', style: ui(12.5, color: C.inkSoft, w: 600)),
+        Text('Photo', style: metaStyle()),
         const SizedBox(height: 8),
         PhotoPicker(urls: _media, onChanged: (v) => setState(() => _media = v), max: 3),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
         PillButton(label: 'List donation', icon: Icons.volunteer_activism_rounded, loading: _busy, onPressed: _submit),
       ],
     );

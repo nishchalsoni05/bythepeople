@@ -8,6 +8,7 @@ import 'package:by_the_people/presentation/features/donations/donation_detail_sc
 import 'package:by_the_people/presentation/features/donations/donation_widgets.dart';
 import 'package:by_the_people/presentation/features/foundations/foundation_dashboard.dart';
 import 'package:by_the_people/presentation/features/foundations/foundations_screen.dart';
+import 'package:by_the_people/presentation/features/needs/needs_screen.dart';
 import 'package:by_the_people/presentation/features/gatherings/welfare_common.dart';
 import 'package:by_the_people/presentation/providers/donation_providers.dart';
 import 'package:by_the_people/presentation/providers/gathering_providers.dart';
@@ -119,9 +120,9 @@ class _DonationsScreenState extends ConsumerState<DonationsScreen> with PollingS
           tooltip: 'Foundations',
           onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FoundationsScreen())),
         ),
-      if (canList) TopBarAction(icon: Icons.add_rounded, tooltip: 'List a donation', onTap: () => showCreateDonationSheet(context)),
+      if (canList) TopBarAction(icon: Icons.add_rounded, tooltip: 'List surplus', onTap: () => showCreateDonationSheet(context)),
     ];
-    final title = _mineMode ? (isFoundation ? 'My claims' : 'My listings') : 'Donations';
+    final title = _mineMode ? (isFoundation ? 'My claims' : 'My listings') : 'Surplus';
     final leading = standalone ? TopBarAction(icon: Icons.arrow_back_rounded, tooltip: 'Back', onTap: () => Navigator.of(context).maybePop()) : null;
     void onTab(int i) => setState(() => _tab = i);
 
@@ -158,9 +159,10 @@ class _DonationsScreenState extends ConsumerState<DonationsScreen> with PollingS
           slivers: [
             WelfareHeaderSliver(title: title, actions: actions, tabs: tabs, tabIndex: tab, onTab: onTab, leading: leading),
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, standalone ? pad.bottom + 40 : 140),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, standalone ? pad.bottom + 110 : 140),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
+                  if (!_mineMode) ...[const _NeedsEntryCard(), const SizedBox(height: 14)],
                   if (isFoundation && !verified) ...[
                     const InfoBanner(
                       icon: Icons.hourglass_top_rounded,
@@ -182,14 +184,27 @@ class _DonationsScreenState extends ConsumerState<DonationsScreen> with PollingS
                     data: (all) {
                       final items = filter(all);
                       if (items.isEmpty) return _empty(label, isFoundation);
+                      final urgent = items.where((x) => x.isAvailable && (x.liveFreshness() == 'critical' || x.liveFreshness() == 'soon')).length;
+                      final servings = items.fold<int>(0, (a, x) => a + (x.servings ?? 0));
                       return Column(
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Row(children: [
+                              Expanded(child: WelfareStat(value: items.length, label: 'Listed', icon: Icons.inventory_2_outlined)),
+                              const SizedBox(width: 10),
+                              Expanded(child: WelfareStat(value: urgent, label: 'Urgent', icon: Icons.bolt_rounded)),
+                              const SizedBox(width: 10),
+                              Expanded(child: WelfareStat(value: servings, label: 'Servings', icon: Icons.restaurant_rounded)),
+                            ]),
+                          ),
                           for (var i = 0; i < items.length; i++)
                             Enter(
                               key: ValueKey('${items[i].id}-$label-$_kind-$_sort'),
                               index: i,
                               child: DonationCard(
                                 d: items[i],
+                                hero: i == 0,
                                 onTap: () => openDonation(context, items[i].id),
                                 onClaim: items[i].canClaim ? () => claimFlow(context, ref, items[i]) : null,
                               ),
@@ -218,11 +233,36 @@ class _DonationsScreenState extends ConsumerState<DonationsScreen> with PollingS
             ? 'We will alert you the moment something is listed near you.'
             : 'Have surplus food or clothes? Tap + to list it in under a minute.',
       ),
-      'Claimed' => const EmptyState(title: 'No claims in flight', body: 'Donations that foundations are collecting show up here.'),
+      'Claimed' => const EmptyState(title: 'No claims in flight', body: 'Surplus that foundations are collecting shows up here.'),
       'Active' => const EmptyState(title: 'No active claims', body: 'Claim a donation from the Available list and it will appear here.'),
       'Done' => const EmptyState(title: 'Nothing completed yet', body: 'Distributed donations will build your impact history.'),
       'Mine' => const EmptyState(title: 'You have not listed anything', body: 'Tap + to share surplus food, clothes, books and more.'),
       _ => const EmptyState(title: 'No history yet', body: 'Distributed and expired donations are kept here.'),
     };
   }
+}
+
+/// Entry point to the needs board, shown at the top of the Give tab.
+class _NeedsEntryCard extends StatelessWidget {
+  const _NeedsEntryCard();
+
+  @override
+  Widget build(BuildContext context) => FlatCard(
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NeedsScreen())),
+        child: Padding(
+          padding: const EdgeInsets.all(R.cardInset),
+          child: Row(children: [
+            const IconChip(Icons.assignment_outlined),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Needs', style: titleStyle()),
+                const SizedBox(height: 2),
+                Text('Specific asks from verified foundations. Pledge to help.', style: metaStyle()),
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, size: 20, color: C.inkSoft),
+          ]),
+        ),
+      );
 }
