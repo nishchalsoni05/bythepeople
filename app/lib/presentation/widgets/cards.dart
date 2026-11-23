@@ -31,11 +31,47 @@ CardPalette paletteFor(Issue i) {
   return CardPalette(Color.lerp(bg, Colors.white, 0.45)!, C.ink, C.muted, bar);
 }
 
+/// Minimal card: white surface, two-layer soft shadow, 24dp radius. Used by donation and event cards.
+class SurfaceCard extends StatelessWidget {
+  const SurfaceCard({super.key, required this.child, this.onTap, this.dim = false, this.margin = EdgeInsets.zero});
+  final Widget child;
+  final VoidCallback? onTap;
+  final bool dim;
+  final EdgeInsets margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = onTap == null ? child : InkWell(onTap: onTap, child: child);
+    return Opacity(
+      opacity: dim ? 0.6 : 1,
+      child: Container(
+        margin: margin,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
+        child: body,
+      ),
+    );
+  }
+}
+
 /// Where the issue is, as a short human line ("Raipur, Chhattisgarh"), plus distance only when near.
 String issueWhere(Issue i) {
   final place = placeLine(i.area.city, i.area.state, address: i.address);
   final d = km(i.distanceKm);
   return [if (place.isNotEmpty) place, if (d.isNotEmpty) d].join(' · ');
+}
+
+/// Status as a small coloured dot plus plain text (replaces coloured pills).
+class StatusDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const StatusDot({super.key, required this.color, required this.label});
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: metaStyle(color: C.ink))),
+      ]);
 }
 
 /// Social-feed card: author row, title, 2-line description, 16:9 image, meta chips, action bar.
@@ -92,18 +128,21 @@ class IssueCard extends ConsumerWidget {
         ],
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-          child: Wrap(spacing: 6, runSpacing: 6, children: [
+          // At most two items: category chip and a status dot with text.
+          child: Row(children: [
             TagChip(issue.categoryLabel, icon: icon),
-            TagChip(
-              isIssue ? 'Open' : (issue.status == 'closed' ? 'Resolved' : statusLabel(issue.status)),
-              color: bar,
-              bg: bar.withValues(alpha: 0.10),
+            const SizedBox(width: 10),
+            Flexible(
+              child: StatusDot(
+                color: bar,
+                label: [
+                  isIssue ? 'Open' : (issue.status == 'closed' ? 'Fulfilled' : statusLabel(issue.status)),
+                  if (issue.severity == 'critical') 'Critical' else if (issue.severity == 'high') 'High priority',
+                  if (!isIssue && issue.scheduledAt != null && !issue.isClosed) whenLabel(issue.scheduledAt!),
+                ].join(' · '),
+              ),
             ),
-            if (issue.severity == 'critical' || issue.severity == 'high')
-              TagChip(issue.severity == 'critical' ? 'Critical' : 'High priority', icon: Icons.priority_high_rounded, color: C.ember, bg: C.ember.withValues(alpha: 0.10)),
-            if (issue.escalated) const EscalatedBadge(),
-            if (issue.authority != null) ConstrainedBox(constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width - 80), child: AuthorityChip(issue)),
-            if (!isIssue && issue.scheduledAt != null && !issue.isClosed) TagChip(whenLabel(issue.scheduledAt!), icon: Icons.schedule_rounded),
+            if (issue.escalated) ...[const SizedBox(width: 10), Text('Escalated', maxLines: 1, style: metaStyle(color: C.ember))],
           ]),
         ),
         if (progress != null)
@@ -117,7 +156,7 @@ class IssueCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text('${issue.supportCount}/${issue.threshold} support', style: ui(12, color: C.inkSoft, w: 600)),
+              Text('${issue.supportCount}/${issue.threshold} pledged', style: ui(12, color: C.inkSoft, w: 600)),
             ]),
           )
         else if (issue.volunteerCount > 0)

@@ -33,8 +33,8 @@ class _TapScaleState extends State<TapScale> {
             },
       child: AnimatedScale(
         scale: _down ? widget.scale : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
+        duration: Duration(milliseconds: _down ? 90 : 220),
+        curve: _down ? Curves.easeOut : Curves.easeOutBack,
         child: widget.child,
       ),
     );
@@ -61,7 +61,7 @@ class CircleBtn extends StatelessWidget {
           Container(
             width: size,
             height: size,
-            decoration: BoxDecoration(color: b, shape: BoxShape.circle, border: dark ? null : Border.all(color: C.line)),
+            decoration: BoxDecoration(color: b, shape: BoxShape.circle, boxShadow: dark ? null : C.shadowSoft),
             child: Icon(icon, size: size * 0.45, color: fg),
           ),
           if (dot)
@@ -80,9 +80,24 @@ class CircleBtn extends StatelessWidget {
   }
 }
 
-const softShadow = [
-  BoxShadow(color: Color(0x0A17181A), blurRadius: 8, offset: Offset(0, 1)),
-];
+/// Two-layer card shadow (see [C.shadowSoft]). Kept as an alias for existing call sites.
+const softShadow = C.shadowSoft;
+
+/// Small rounded-square icon tile: 18dp glyph on a 32dp [C.muted] chip. One icon family across the app.
+class IconChip extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  final Color? color;
+  const IconChip(this.icon, {super.key, this.size = 32, this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: C.muted, borderRadius: BorderRadius.circular(size * 0.32)),
+        child: Icon(icon, size: 18, color: color ?? C.ink),
+      );
+}
 
 /// Flat surface panel (name kept for compatibility; no blur any more).
 class FrostedPanel extends StatelessWidget {
@@ -120,9 +135,10 @@ class SegmentedToggle extends StatelessWidget {
     final track = dark ? Colors.white.withValues(alpha: 0.14) : C.muted;
     final thumb = dark ? Colors.white : C.surface;
     return Container(
-      height: 36,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(color: track, borderRadius: BorderRadius.circular(10)),
+      height: 40,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: track, borderRadius: BorderRadius.circular(20)),
+      // pill track
       child: LayoutBuilder(builder: (context, c) {
         final w = c.maxWidth / labels.length;
         return Stack(children: [
@@ -136,8 +152,8 @@ class SegmentedToggle extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: thumb,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: dark ? null : const [BoxShadow(color: Color(0x1017181A), blurRadius: 3, offset: Offset(0, 1))],
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: dark ? null : C.shadowSoft,
               ),
             ),
           ),
@@ -186,10 +202,10 @@ class AppChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: selected || dark ? null : Border.all(color: C.line),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -358,10 +374,14 @@ class PillButton extends StatelessWidget {
         opacity: onPressed == null ? 0.45 : 1,
         duration: const Duration(milliseconds: 200),
         child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
           constraints: expand ? const BoxConstraints(minWidth: double.infinity) : null,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: color == C.ink && onPressed != null ? C.shadowSoft : null,
+          ),
           child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
             if (loading)
               SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: fg))
@@ -456,7 +476,7 @@ class _FloatingNavState extends State<FloatingNav> with SingleTickerProviderStat
     final n = _items.length;
     final inline = widget.addSlot != null && widget.onAdd != null;
     final item = ((screenW - 32 - addSize - 12 - 14) / 4).clamp(44.0, 58.0);
-    const pad = 7.0;
+    const pad = 4.0;
     final barH = item + pad * 2;
     final d = item - 4; // blob diameter: always a true circle with a margin inside the bar
     final slots = n + (inline ? 1 : 0);
@@ -470,9 +490,9 @@ class _FloatingNavState extends State<FloatingNav> with SingleTickerProviderStat
         height: barH,
         padding: const EdgeInsets.all(pad),
         decoration: BoxDecoration(
-          color: C.inkCard,
-          borderRadius: BorderRadius.circular(32),
-          boxShadow: const [BoxShadow(color: Color(0x2617181A), blurRadius: 16, offset: Offset(0, 4))],
+          color: C.surface,
+          borderRadius: BorderRadius.circular(36),
+          boxShadow: C.shadowLift,
         ),
         child: SizedBox(
           width: item * slots,
@@ -495,9 +515,8 @@ class _FloatingNavState extends State<FloatingNav> with SingleTickerProviderStat
                   height: h,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: C.ink,
                       borderRadius: BorderRadius.circular(h),
-                      
                     ),
                   ),
                 );
@@ -526,13 +545,13 @@ class _FloatingNavState extends State<FloatingNav> with SingleTickerProviderStat
                             _items[i].icon,
                             key: ValueKey(i == widget.index),
                             size: item * 0.45,
-                            color: i == widget.index ? C.ink : Colors.white70,
+                            color: i == widget.index ? Colors.white : C.inkSoft,
                           ),
                         ),
                         if (widget.dotOnProfile && i == dotIdx)
                           Positioned(
                             right: -2, top: -2,
-                            child: Container(width: 9, height: 9, decoration: BoxDecoration(color: C.ember, shape: BoxShape.circle, border: Border.all(color: C.inkCard, width: 1.5))),
+                            child: Container(width: 9, height: 9, decoration: BoxDecoration(color: C.ember, shape: BoxShape.circle, border: Border.all(color: C.surface, width: 1.5))),
                           ),
                       ]),
                     ),
@@ -551,7 +570,7 @@ class _FloatingNavState extends State<FloatingNav> with SingleTickerProviderStat
                     child: Container(
                       width: item - 2,
                       height: item - 2,
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: C.ember),
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: C.ember, boxShadow: C.shadowSoft),
                       child: Icon(Icons.add_rounded, color: Colors.white, size: item * 0.55, semanticLabel: 'Create'),
                     ),
                   ),
@@ -567,7 +586,7 @@ class _FloatingNavState extends State<FloatingNav> with SingleTickerProviderStat
           child: Container(
             width: addSize,
             height: addSize,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: C.ember),
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: C.ember, boxShadow: C.shadowLift),
             child: Icon(Icons.add_rounded, color: Colors.white, size: addSize * 0.5, semanticLabel: 'Report an issue'),
           ),
         ),
@@ -601,21 +620,92 @@ class EmptyState extends StatelessWidget {
   const EmptyState({super.key, required this.title, required this.body, this.dark = false});
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => Opacity(opacity: t, child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child)),
+      child: Padding(
       padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          width: 56, height: 56,
-          decoration: BoxDecoration(color: dark ? Colors.white12 : C.muted, borderRadius: BorderRadius.circular(16)),
+          width: 64, height: 64,
+          decoration: BoxDecoration(color: dark ? Colors.white12 : C.surface, borderRadius: BorderRadius.circular(R.card - 8), boxShadow: dark ? null : C.shadowSoft),
           child: Icon(Icons.inbox_outlined, size: 26, color: dark ? Colors.white70 : C.inkSoft),
         ),
-        const SizedBox(height: 14),
-        Text(title, textAlign: TextAlign.center, style: ui(17, w: 650, color: dark ? Colors.white : C.ink)),
-        const SizedBox(height: 6),
-        Text(body, textAlign: TextAlign.center, style: ui(13.5, color: dark ? Colors.white70 : C.inkSoft, h: 1.45)),
+        const SizedBox(height: R.cardInset),
+        Text(title, textAlign: TextAlign.center, style: titleStyle(color: dark ? Colors.white : C.ink)),
+        const SizedBox(height: R.unit),
+        Text(body, textAlign: TextAlign.center, style: bodyStyle(color: dark ? Colors.white70 : C.inkSoft)),
       ]),
-    );
+    ));
   }
+}
+
+/// Stat strip tile: big number over a small grey label.
+class MetricTile extends StatelessWidget {
+  final String value, label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  const MetricTile({super.key, required this.value, required this.label, this.icon, this.onTap});
+  @override
+  Widget build(BuildContext context) => TapScale(
+        onTap: onTap,
+        scale: 0.98,
+        child: Container(
+          padding: const EdgeInsets.all(R.cardInset),
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(R.card), boxShadow: C.shadowSoft),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            if (icon != null) ...[Icon(icon, size: 18, color: C.inkSoft), const SizedBox(height: 8)],
+            Text(value, style: numStyle(26)),
+            const SizedBox(height: 2),
+            Text(label, style: metaStyle()),
+          ]),
+        ),
+      );
+}
+
+/// Dashed outlined "Add" tile.
+class DashedAddTile extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final double height;
+  const DashedAddTile({super.key, required this.label, this.onTap, this.height = 88});
+  @override
+  Widget build(BuildContext context) => TapScale(
+        onTap: onTap,
+        child: CustomPaint(
+          painter: _DashedRRect(),
+          child: SizedBox(
+            height: height,
+            width: double.infinity,
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.add_rounded, size: 20, color: C.inkSoft),
+              const SizedBox(width: 6),
+              Text(label, style: ui(14, color: C.inkSoft, w: 600)),
+            ]),
+          ),
+        ),
+      );
+}
+
+class _DashedRRect extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(R.card)));
+    final paint = Paint()
+      ..color = const Color(0xFFCFCFD4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    for (final m in path.computeMetrics()) {
+      for (var d = 0.0; d < m.length; d += 12) {
+        canvas.drawPath(m.extractPath(d, (d + 6).clamp(0, m.length)), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }
 
 class LoadingOrb extends StatelessWidget {
@@ -701,7 +791,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: widget.error ? C.ink : C.inkCard,
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: const [BoxShadow(color: Color(0x3017181A), blurRadius: 14, offset: Offset(0, 4))],
+                boxShadow: C.shadowLift,
               ),
               child: Row(children: [
                 Icon(widget.icon ?? (widget.error ? Icons.error_outline_rounded : Icons.check_circle_rounded),
@@ -726,11 +816,22 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+      padding: const EdgeInsets.fromLTRB(4, R.unit, 4, R.unit + 4),
       child: Row(children: [
-        Expanded(child: Text(title, style: ui(17, color: dark ? Colors.white : C.ink, w: 650))),
+        Expanded(child: Text(title, style: titleStyle(color: dark ? Colors.white : C.ink))),
         if (action != null)
-          GestureDetector(onTap: onAction, child: Text(action!, style: ui(13.5, color: dark ? Colors.white70 : C.inkSoft, w: 600))),
+          TapScale(
+            onTap: onAction,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+              decoration: BoxDecoration(color: dark ? Colors.white12 : C.surface, borderRadius: BorderRadius.circular(16), boxShadow: dark ? null : C.shadowSoft),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(action!, style: metaStyle(color: dark ? Colors.white : C.ink).copyWith(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 2),
+                Icon(Icons.arrow_outward_rounded, size: 14, color: dark ? Colors.white : C.ink),
+              ]),
+            ),
+          ),
       ]),
     );
   }
@@ -742,7 +843,7 @@ class PageBackdrop extends StatelessWidget {
   final int mode;
   const PageBackdrop({super.key, required this.child, this.mode = 0});
   @override
-  Widget build(BuildContext context) => IridescentBackground(mode: mode, child: child);
+  Widget build(BuildContext context) => ColoredBox(color: C.canvas, child: child);
 }
 
 
@@ -933,7 +1034,7 @@ Future<T?> showChoiceSheet<T>(BuildContext context, {required String title, requ
   );
 }
 
-/// Flat white card surface with a hairline border. Use for feed cards, list rows and panels.
+/// White card with the two-layer soft shadow and a 24dp radius. Use for feed cards, list rows and panels.
 class FlatCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -941,7 +1042,7 @@ class FlatCard extends StatelessWidget {
   final double radius;
   final VoidCallback? onTap;
   final Color? color;
-  const FlatCard({super.key, required this.child, this.padding = EdgeInsets.zero, this.margin = EdgeInsets.zero, this.radius = 22, this.onTap, this.color});
+  const FlatCard({super.key, required this.child, this.padding = EdgeInsets.zero, this.margin = EdgeInsets.zero, this.radius = R.card, this.onTap, this.color});
   @override
   Widget build(BuildContext context) {
     final card = Container(
@@ -949,8 +1050,7 @@ class FlatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? C.surface,
         borderRadius: BorderRadius.circular(radius),
-        border: color == null ? Border.all(color: C.line) : null,
-        boxShadow: const [BoxShadow(color: Color(0x0F1A1013), blurRadius: 18, offset: Offset(0, 6))],
+        boxShadow: C.shadowSoft,
       ),
       child: ClipRRect(borderRadius: BorderRadius.circular(radius), child: Padding(padding: padding, child: child)),
     );

@@ -1,32 +1,60 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Design tokens (see docs/design.md).
 class C {
-  static const canvas = Color(0xFFF5F5F3);
+  // Minimal monochrome system: white surfaces on a soft grey canvas, near-black ink.
+  static const canvas = Color(0xFFF4F4F5);
   static const surface = Colors.white;
-  static const muted = Color(0xFFEFEEEA);
-  static const ink = Color(0xFF17181A);
-  static const inkCard = Color(0xFF232426);
-  static const inkSoft = Color(0xFF666A70);
-  static const line = Color(0xFFE4E4E0);
+  static const muted = Color(0xFFF0F0F2);
+  static const ink = Color(0xFF111111);
+  static const inkCard = Color(0xFF111111);
+  static const inkSoft = Color(0xFF8A8A90);
+  static const line = Color(0xFFEBEBED);
 
-  static const lime = Color(0xFFC8DB7A);
-  static const lavender = Color(0xFFA99BD6);
-  static const sky = Color(0xFF8CC8F0);
-  static const blush = Color(0xFFF4B8C0);
-  static const mint = Color(0xFFD9F0E3);
-  static const mintDeep = Color(0xFFBFE3C8);
-  static const amber = Color(0xFFFFC48A);
-  static const ember = Color(0xFFE0501F);
-  static const emberLight = Color(0xFFFFB347);
-  static const emberDark = Color(0xFF1A1013);
+  // Accent family collapsed to neutrals; `ember` is the single brand accent (ink) and `danger` is reserved for alerts.
+  static const lime = Color(0xFFEDEDEF);
+  static const lavender = Color(0xFFEDEDEF);
+  static const sky = Color(0xFFEDEDEF);
+  static const blush = Color(0xFFF3F3F4);
+  static const mint = Color(0xFFF0F0F2);
+  static const mintDeep = Color(0xFFE6E6E9);
+  static const amber = Color(0xFFEFEFF1);
+  static const ember = Color(0xFF111111);
+  static const emberLight = Color(0xFF3A3A3D);
+  static const emberDark = Color(0xFF000000);
+  static const danger = Color(0xFFD64545);
+
+  /// Two-layer elevation: a tight contact shadow plus a wide, faint ambient one.
+  static const shadowSoft = [
+    BoxShadow(color: Color(0x0A111111), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x0F111111), blurRadius: 20, offset: Offset(0, 6)),
+  ];
+
+  /// Stronger lift for floating elements (nav pill, sheets, toasts).
+  static const shadowLift = [
+    BoxShadow(color: Color(0x0F111111), blurRadius: 3, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x1A111111), blurRadius: 28, offset: Offset(0, 10)),
+  ];
 }
 
 class R {
-  static const card = 22.0;
+  /// Card corner radius (24) and card inner inset (16) on an 8pt grid.
+  static const card = 24.0;
+  static const cardInset = 16.0;
   static const sheet = 28.0;
+  static const unit = 8.0;
 }
+
+/// Hierarchy for list/card text: title 17 w650, body 14 w500, meta 12 w500 in [C.inkSoft].
+TextStyle titleStyle({Color color = C.ink}) => ui(17, w: 650, color: color, h: 1.25);
+TextStyle bodyStyle({Color color = C.ink}) => ui(14, w: 500, color: color, h: 1.4);
+TextStyle metaStyle({Color color = C.inkSoft}) => ui(12, w: 500, color: color, h: 1.3);
+
+/// Numbers that line up in columns and counters.
+TextStyle numStyle(double size, {Color color = C.ink, double w = 700}) =>
+    ui(size, w: w, color: color, ls: -0.3).copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 
 const _wght = 'wght';
 
@@ -60,7 +88,24 @@ TextStyle ui(double size, {Color color = C.ink, double w = 500, double h = 1.3, 
 
 Color hueColor(int hue, {double s = 0.55, double l = 0.8}) => HSLColor.fromAHSL(1, hue % 360.0, s, l).toColor();
 
+/// Need categories shown to users (keys match the API; old civic keys are kept so legacy rows still get an icon).
+const categoryLabels = <String, String>{
+  'food': 'Food',
+  'clothes': 'Clothes',
+  'money': 'Money',
+  'medicine': 'Medicine',
+  'stationery': 'Stationery',
+  'volunteers': 'Volunteers',
+  'other': 'Other',
+};
+
 const categoryIcons = <String, IconData>{
+  'food': Icons.restaurant_outlined,
+  'clothes': Icons.checkroom_outlined,
+  'money': Icons.payments_outlined,
+  'medicine': Icons.medication_outlined,
+  'stationery': Icons.edit_note_outlined,
+  'volunteers': Icons.groups_outlined,
   'road': Icons.add_road,
   'garbage': Icons.delete_outline,
   'water': Icons.water_drop_outlined,
@@ -91,6 +136,11 @@ ThemeData buildTheme() {
     scaffoldBackgroundColor: C.canvas,
     colorScheme: ColorScheme.fromSeed(seedColor: C.ember, brightness: Brightness.light, surface: C.surface),
     splashFactory: NoSplash.splashFactory,
+    pageTransitionsTheme: PageTransitionsTheme(builders: {
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+    }),
     highlightColor: Colors.transparent,
     fontFamily: 'Jakarta',
   );
@@ -126,10 +176,10 @@ TextTheme _textTheme(TextTheme t) {
 
 /// Soft pastel surface for a card, chosen deterministically from a key (type/kind/category).
 Color pastelOf(String key) {
-  const list = [C.amber, C.mintDeep, C.lavender, C.sky, C.blush, C.lime];
+  const list = [Color(0xFFF2F2F4), Color(0xFFEDEDF0), Color(0xFFF5F5F6)];
   var h = 0;
   for (final u in key.codeUnits) {
     h = (h * 31 + u) & 0x7fffffff;
   }
-  return Color.lerp(list[h % list.length], Colors.white, 0.4)!;
+  return list[h % list.length];
 }
