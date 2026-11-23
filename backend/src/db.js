@@ -237,6 +237,7 @@ CREATE TABLE IF NOT EXISTS donations (
   picked_up_at INTEGER, distributed_at INTEGER,
   dist_note TEXT, dist_beneficiaries INTEGER, dist_media TEXT,
   share_count INTEGER NOT NULL DEFAULT 0,
+  donor_kind TEXT NOT NULL DEFAULT 'donor',
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
@@ -248,10 +249,57 @@ CREATE TABLE IF NOT EXISTS donation_history (
   user_id INTEGER,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS needs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  foundation_id INTEGER NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  quantity TEXT NOT NULL DEFAULT '',
+  deadline_at INTEGER,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at INTEGER NOT NULL,
+  urgency TEXT NOT NULL DEFAULT 'normal',
+  description TEXT NOT NULL DEFAULT '',
+  target_qty INTEGER NOT NULL DEFAULT 0,
+  pledged_qty INTEGER NOT NULL DEFAULT 0,
+  unit TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_needs_status ON needs(status);
+CREATE TABLE IF NOT EXISTS need_pledges (
+  need_id INTEGER NOT NULL REFERENCES needs(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  note TEXT,
+  created_at INTEGER NOT NULL,
+  qty INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (need_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  title TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  recipient_id INTEGER REFERENCES users(id),
+  remind_at INTEGER NOT NULL,
+  ref_type TEXT, ref_id INTEGER,
+  done INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reminders_user ON reminders(user_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_recipient ON reminders(recipient_id);
 `;
 
 export function initSchema() {
   db.exec(SCHEMA);
+  // Databases created before donor_kind existed: add the column in place.
+  const cols = db.prepare('PRAGMA table_info(donations)').all().map((c) => c.name);
+  if (!cols.includes('donor_kind')) db.exec("ALTER TABLE donations ADD COLUMN donor_kind TEXT NOT NULL DEFAULT 'donor'");
+  const ncols = db.prepare('PRAGMA table_info(needs)').all().map((c) => c.name);
+  for (const [c, def] of [['urgency', "TEXT NOT NULL DEFAULT 'normal'"], ['description', "TEXT NOT NULL DEFAULT ''"],
+    ['target_qty', 'INTEGER NOT NULL DEFAULT 0'], ['pledged_qty', 'INTEGER NOT NULL DEFAULT 0'], ['unit', "TEXT NOT NULL DEFAULT ''"]]) {
+    if (!ncols.includes(c)) db.exec(`ALTER TABLE needs ADD COLUMN ${c} ${def}`);
+  }
+  const pcols = db.prepare('PRAGMA table_info(need_pledges)').all().map((c) => c.name);
+  if (!pcols.includes('qty')) db.exec('ALTER TABLE need_pledges ADD COLUMN qty INTEGER NOT NULL DEFAULT 0');
 }
 
 /** Drops everything (used by the seed so the schema always matches the code). */

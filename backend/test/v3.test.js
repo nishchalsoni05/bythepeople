@@ -792,7 +792,7 @@ await t('donations: release, pickup, distribute with points and notifications', 
   const id = don.id; // claimed by seva
   assert.equal((await call('POST', `/donations/${id}/release`, {}, anna)).body.code, 'NOT_CLAIMER');
   assert.equal((await call('POST', `/donations/${id}/pickup`, {}, anna)).status, 403);
-  assert.equal((await call('POST', `/donations/${id}/distribute`, { beneficiaries: 5 }, seva)).body.code, 'NOT_PICKED_UP');
+  assert.equal((await call('POST', `/donations/${id}/distribute`, { beneficiaries: 5, media: [await upload(seva)] }, seva)).body.code, 'NOT_PICKED_UP');
   const rel = await call('POST', `/donations/${id}/release`, {}, seva);
   assert.equal(rel.body.donation.status, 'available'); assert.equal(rel.body.donation.claimedBy, null); assert.equal(rel.body.donation.lockExpiresAt, null);
   assert.ok((await call('GET', '/notifications', null, kiran)).body.items.some((n) => n.type === 'donation_released' && n.refId === id));
@@ -818,7 +818,7 @@ await t('donations: release, pickup, distribute with points and notifications', 
   assert.equal((await call('GET', '/me', null, anna)).body.user.points, annaBefore + 5);
   const note = (await call('GET', '/notifications', null, kiran)).body.items.find((n) => n.type === 'donation_distributed' && n.refId === id);
   assert.ok(note && /22/.test(note.body));
-  assert.equal((await call('POST', `/donations/${id}/distribute`, { beneficiaries: 3 }, anna)).status, 409);
+  assert.equal((await call('POST', `/donations/${id}/distribute`, { beneficiaries: 3, media: [proof] }, anna)).status, 409);
   const hist = (await call('GET', '/donations?status=history', null, demo)).body.items;
   assert.ok(hist.some((d) => d.id === id));
 });
@@ -831,7 +831,7 @@ await t('donations: giver and feeder badges', async () => {
     const d = (await call('POST', '/donations', foodBody({ title: `Meal ${k}` }), tok)).body.donation;
     await call('POST', `/donations/${d.id}/claim`, { etaMinutes: 20 }, anna);
     await call('POST', `/donations/${d.id}/pickup`, {}, anna);
-    await call('POST', `/donations/${d.id}/distribute`, { beneficiaries: 10 + k }, anna);
+    await call('POST', `/donations/${d.id}/distribute`, { beneficiaries: 10 + k, media: [await upload(anna)] }, anna);
   }
   const me = (await call('GET', '/me', null, tok)).body.user;
   for (const b of me.badges.filter((x) => x.earned)) badgeKeys.add(b.key);
@@ -918,7 +918,8 @@ await t('donations: freshness levels', async () => {
 
 await t('foundations: public list, detail, dashboard, stats', async () => {
   const forCitizen = (await call('GET', '/foundations', null, demo)).body.items;
-  assert.deepEqual(forCitizen.map((f) => f.name).sort(), ['Annapurna Food Bank', 'Seva Sankalp Foundation']);
+  assert.deepEqual(forCitizen.map((f) => f.name).sort(), ['Annapurna Food Bank', 'Bal Vikas Anathalaya', 'Drishti Blind Care Centre', 'Raen Basera Night Shelter',
+    'Seva Sankalp Foundation', 'Shanti Vridhashram']);
   assert.ok(forCitizen.every((f) => f.verified && f.regNo && f.stats && typeof f.activeClaims === 'number'));
   const forAdmin = (await call('GET', '/foundations', null, admin)).body.items;
   assert.ok(forAdmin.some((f) => f.name === 'New Hope Trust' && f.verified === false));
@@ -1086,6 +1087,177 @@ await t('geo: a client ~45 km from Raipur sees all data and gets a state-wide de
   assert.equal(nowhere.covered, false); assert.equal(nowhere.defaultScope, 'all'); assert.equal(nowhere.state, null);
   const all = (await call('GET', '/issues?phase=all&scope=city&lat=10&lng=100', null, demo)).body;
   assert.equal(all.scope, 'all'); assert.equal(all.items.length, near);
+});
+
+// ---------- insights & impact ----------
+await t('insights: requires sign-in (401 without a token)', async () => {
+  assert.equal((await call('GET', '/insights')).status, 401);
+  assert.equal((await call('GET', '/impact')).status, 401);
+});
+
+await t('insights: citizen, foundation and admin get the documented shape', async () => {
+  for (const tok of [demo, anna, admin]) {
+    const r = await call('GET', '/insights', null, tok);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(Object.keys(r.body).sort(), ['metrics', 'period', 'top', 'weekly']);
+    assert.equal(typeof r.body.period.from, 'number'); assert.equal(typeof r.body.period.to, 'number');
+    assert.deepEqual(r.body.metrics.map((m) => m.key), ['people_reached', 'items_donated', 'events_joined', 'claim_rate']);
+    for (const m of r.body.metrics) {
+      assert.equal(typeof m.label, 'string'); assert.equal(typeof m.value, 'number');
+      assert.equal(typeof m.delta, 'number'); assert.equal(typeof m.deltaLabel, 'string');
+      assert.equal(typeof m.positive, 'boolean');
+    }
+    const rate = r.body.metrics.find((m) => m.key === 'claim_rate').value;
+    assert.ok(rate >= 0 && rate <= 1, `claim rate ${rate}`);
+    assert.equal(r.body.weekly.length, 7);
+    assert.ok(r.body.weekly.every((w) => typeof w.day === 'string' && typeof w.value === 'number'));
+    assert.ok(r.body.top.length <= 5);
+    for (const i of r.body.top) {
+      assert.ok(['donation', 'gathering'].includes(i.kind));
+      assert.equal(typeof i.id, 'number'); assert.equal(typeof i.title, 'string');
+      assert.equal(typeof i.subtitle, 'string'); assert.equal(typeof i.when, 'number');
+      assert.ok(i.rate >= 0 && i.rate <= 1);
+    }
+  }
+});
+
+await t('impact: citizen, foundation and admin get totals; volunteer hours are 3 per event', async () => {
+  for (const tok of [demo, anna, admin]) {
+    const r = await call('GET', '/impact', null, tok);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(Object.keys(r.body).sort(), ['events', 'items', 'meals', 'volunteerHours']);
+    for (const k of ['meals', 'items', 'events', 'volunteerHours']) assert.equal(typeof r.body[k], 'number');
+    assert.equal(r.body.volunteerHours, r.body.events * 3);
+  }
+});
+
+// ---------- needs, foundation surplus, proof of delivery, reminders ----------
+await t('needs: verified foundation posts, citizen and unverified foundation cannot, validation', async () => {
+  const deadlineAt = Date.now() + 2 * DAY;
+  const bad = await call('POST', '/needs', { kind: 'food', title: 'Rice for families', quantity: '40 kg', deadlineAt }, demo);
+  assert.equal(bad.status, 403); assert.equal(bad.body.code, 'FORBIDDEN');
+  const unv = await call('POST', '/needs', { kind: 'food', title: 'Rice for families', quantity: '40 kg', deadlineAt }, hope);
+  assert.equal(unv.status, 403); assert.equal(unv.body.code, 'NOT_VERIFIED');
+  for (const body of [{ kind: 'nope', title: 'Rice for families' }, { kind: 'food', title: 'ab' }, { kind: 'constructor', title: 'Rice for families' }]) {
+    assert.equal((await call('POST', '/needs', body, seva)).status, 400, JSON.stringify(body));
+  }
+  assert.equal((await call('POST', '/needs', { kind: 'food', title: 'Rice for families', deadlineAt: 1000 }, seva)).status, 400);
+  const created = await call('POST', '/needs', { kind: 'food', title: 'Rice for 40 families', quantity: '40 kg', deadlineAt }, seva);
+  assert.equal(created.status, 201);
+  const n = created.body.need;
+  assert.equal(n.kind, 'food'); assert.equal(n.kindLabel, 'Food'); assert.equal(n.status, 'open');
+  assert.equal(n.quantity, '40 kg'); assert.equal(n.deadlineAt, deadlineAt); assert.equal(n.pledgeCount, 0); assert.equal(n.pledgedByMe, false);
+  assert.equal(n.foundation.verified, true); assert.equal(n.foundation.id, await uid(seva));
+  globalThis.needId = n.id;
+});
+
+await t('needs: list is newest first with open default, pledges are idempotent, owner cannot pledge', async () => {
+  const list = (await call('GET', '/needs', null, anna)).body.items;
+  assert.equal(list[0].id, needId);
+  assert.ok(list.every((x) => x.status === 'open'));
+  assert.equal((await call('GET', '/needs?status=bogus', null, anna)).status, 400);
+  assert.equal((await call('POST', `/needs/${needId}/pledge`, {}, seva)).status, 409);
+  const p1 = await call('POST', `/needs/${needId}/pledge`, { note: 'We can deliver Friday' }, anna);
+  assert.equal(p1.status, 200); assert.equal(p1.body.need.pledgeCount, 1); assert.equal(p1.body.need.pledgedByMe, true);
+  const p2 = await call('POST', `/needs/${needId}/pledge`, {}, anna);
+  assert.equal(p2.status, 200); assert.equal(p2.body.need.pledgeCount, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM need_pledges WHERE need_id=?').get(needId).c, 1);
+  assert.ok((await call('GET', '/notifications', null, seva)).body.items.some((x) => x.type === 'need_pledge' && x.refId === needId));
+  assert.equal((await call('POST', '/needs/99999/pledge', {}, anna)).status, 404);
+  const dem = await call('POST', `/needs/${needId}/pledge`, {}, demo);
+  assert.equal(dem.body.need.pledgeCount, 2);
+  const un = await call('DELETE', `/needs/${needId}/pledge`, null, demo);
+  assert.equal(un.body.need.pledgeCount, 1); assert.equal(un.body.need.pledgedByMe, false);
+  assert.equal((await call('GET', '/needs', null, demo)).body.items.find((x) => x.id === needId).pledgedByMe, false);
+});
+
+await t('needs: only the owner can close; closed needs leave the open list and reject pledges', async () => {
+  assert.equal((await call('POST', `/needs/${needId}/close`, {}, anna)).status, 403);
+  const c = await call('POST', `/needs/${needId}/close`, {}, seva);
+  assert.equal(c.status, 200); assert.equal(c.body.need.status, 'closed');
+  assert.ok(!(await call('GET', '/needs', null, anna)).body.items.some((x) => x.id === needId));
+  assert.ok((await call('GET', '/needs?status=closed', null, anna)).body.items.some((x) => x.id === needId));
+  assert.equal((await call('POST', `/needs/${needId}/pledge`, {}, demo)).status, 409);
+});
+
+await t('surplus: verified foundation can share, other verified foundation claims, citizens and the donor cannot', async () => {
+  const mk = await call('POST', '/donations', { kind: 'clothes', title: 'Winter blankets surplus', quantity: '30 blankets', ...at() }, seva);
+  assert.equal(mk.status, 201); assert.equal(mk.body.donation.donorKind, 'foundation');
+  const sur = mk.body.donation.id;
+  const own = await call('POST', '/donations', { kind: 'clothes', title: 'Citizen clothes drive', quantity: '5 bags', ...at() }, demo);
+  assert.equal(own.body.donation.donorKind, 'donor');
+  assert.equal((await call('POST', '/donations', { kind: 'clothes', title: 'Blankets from hope', quantity: '3', ...at() }, hope)).body.code, 'NOT_VERIFIED');
+  assert.equal((await call('POST', `/donations/${sur}/claim`, { etaMinutes: 20 }, demo)).body.code, 'FORBIDDEN');
+  assert.equal((await call('POST', `/donations/${sur}/claim`, { etaMinutes: 20 }, neta)).body.code, 'FORBIDDEN');
+  assert.equal((await call('POST', `/donations/${sur}/claim`, { etaMinutes: 20 }, admin)).body.code, 'FORBIDDEN');
+  assert.equal((await call('POST', `/donations/${sur}/claim`, { etaMinutes: 20 }, seva)).body.code, 'FORBIDDEN');
+  assert.equal((await call('GET', `/donations/${sur}`, null, seva)).body.donation.canClaim, false);
+  assert.equal((await call('GET', `/donations/${sur}`, null, anna)).body.donation.canClaim, true);
+  const claim = await call('POST', `/donations/${sur}/claim`, { etaMinutes: 20 }, anna);
+  assert.equal(claim.status, 200); assert.equal(claim.body.donation.donorKind, 'foundation');
+  assert.equal(claim.body.donation.claimedBy.id, await uid(anna));
+  assert.equal(claim.body.donation.proof, null);
+  globalThis.surId = sur;
+});
+
+await t('proof of delivery: distribute needs photos and a beneficiary count; proof exposed when distributed', async () => {
+  assert.equal((await call('POST', `/donations/${surId}/pickup`, {}, anna)).status, 200);
+  const noMedia = await call('POST', `/donations/${surId}/distribute`, { beneficiaries: 12 }, anna);
+  assert.equal(noMedia.status, 400); assert.equal(noMedia.body.code, 'BAD_REQUEST');
+  const noCount = await call('POST', `/donations/${surId}/distribute`, { media: [await upload(anna)] }, anna);
+  assert.equal(noCount.status, 400); assert.equal(noCount.body.code, 'BAD_REQUEST');
+  const p = await upload(anna);
+  const ok = await call('POST', `/donations/${surId}/distribute`, { note: 'Handed out at the ward office', beneficiaries: 12, media: [p] }, anna);
+  assert.equal(ok.status, 200);
+  const d = ok.body.donation;
+  assert.equal(d.status, 'distributed'); assert.equal(d.distribution.beneficiaries, 12);
+  assert.deepEqual(d.proof.media, [p]); assert.equal(d.proof.note, 'Handed out at the ward office');
+  assert.equal(d.proof.beneficiaries, 12); assert.equal(typeof d.proof.at, 'number'); assert.equal(d.proof.at, d.distributedAt);
+  const reread = (await call('GET', `/donations/${surId}`, null, seva)).body.donation;
+  assert.deepEqual(reread.proof.media, [p]); assert.equal(reread.proof.beneficiaries, 12);
+});
+
+await t('reminders: create for me, list, collaborator notification, creator-only delete', async () => {
+  const remindAt = Date.now() + HOUR;
+  const mine = await call('POST', '/reminders', { title: 'Call the shelter', scope: 'me', remindAt, refType: 'gathering', refId: 3 }, demo);
+  assert.equal(mine.status, 201); assert.equal(mine.body.reminder.mine, true); assert.equal(mine.body.reminder.recipient, null);
+  assert.equal(mine.body.reminder.refType, 'gathering'); assert.equal(mine.body.reminder.refId, 3); assert.equal(mine.body.reminder.done, false);
+  assert.equal((await call('POST', '/reminders', { title: 'Collab', scope: 'collaborator', remindAt }, demo)).status, 400);
+  assert.equal((await call('POST', '/reminders', { title: 'Collab', scope: 'collaborator', remindAt, recipientId: 999999 }, demo)).status, 404);
+  assert.equal((await call('POST', '/reminders', { title: 'Bad', scope: 'other', remindAt }, demo)).status, 400);
+  const sunitaId = await uid(sunita);
+  const later = await call('POST', '/reminders', { title: 'Send the blanket list', scope: 'collaborator', remindAt: remindAt + DAY, recipientId: sunitaId }, demo);
+  assert.equal(later.status, 201); assert.equal(later.body.reminder.recipient.id, sunitaId);
+  const early = await call('POST', '/reminders', { title: 'Space walkthrough', scope: 'space', remindAt: remindAt - HOUR }, demo);
+  assert.equal(early.status, 201);
+  const demoList = (await call('GET', '/reminders', null, demo)).body.items;
+  const times = demoList.map((r) => r.remindAt);
+  assert.deepEqual(times, [...times].sort((a, b) => a - b));
+  assert.ok(demoList.some((r) => r.id === mine.body.reminder.id));
+  const sunitaList = (await call('GET', '/reminders', null, sunita)).body.items;
+  const got = sunitaList.find((r) => r.id === later.body.reminder.id);
+  assert.ok(got); assert.equal(got.mine, false); assert.equal(got.scope, 'collaborator');
+  assert.ok(!sunitaList.some((r) => r.id === mine.body.reminder.id));
+  const note = (await call('GET', '/notifications', null, sunita)).body.items.find((x) => x.type === 'reminder' && x.refId === later.body.reminder.id);
+  assert.ok(note); assert.equal(note.title, 'Reminder from Alex Rathore');
+  assert.equal((await call('DELETE', `/reminders/${mine.body.reminder.id}`, null, sunita)).status, 403);
+  assert.equal((await call('DELETE', `/reminders/${later.body.reminder.id}`, null, sunita)).status, 403);
+  assert.deepEqual((await call('DELETE', `/reminders/${mine.body.reminder.id}`, null, demo)).body, { ok: true });
+  assert.ok(!(await call('GET', '/reminders', null, demo)).body.items.some((r) => r.id === mine.body.reminder.id));
+  assert.equal((await call('DELETE', `/reminders/${mine.body.reminder.id}`, null, demo)).status, 404);
+});
+
+await t('sevalink seed: needs with urgency and progress, meals stat, proof of delivery', async () => {
+  const needs = (await call('GET', '/needs', null, demo)).body.items;
+  assert.ok(needs.length >= 8);
+  assert.ok(needs.every((n) => ['low', 'normal', 'high', 'critical'].includes(n.urgency) && typeof n.progress === 'number'));
+  const bl = needs.find((n) => n.title === '40 blankets by Friday');
+  assert.ok(bl && bl.urgency === 'critical' && bl.targetQty === 40 && bl.pledgedQty === 26 && bl.progress > 0.6 && bl.progress < 1);
+  assert.ok(new Set(needs.map((n) => n.kind)).size >= 6);
+  const me = (await call('GET', '/me', null, demo)).body.user;
+  assert.ok(me.stats.meals > 0 && typeof me.stats.reports === 'number');
+  const fdash = (await call('GET', `/foundation/dashboard?lat=${BASE.lat}&lng=${BASE.lng}`, null, anna)).body;
+  assert.ok(fdash.stats.meals > 0 && fdash.stats.claimed >= 1);
 });
 
 console.log(`\n${passed} v3 tests passed${process.exitCode ? ' (with failures)' : ''}`);

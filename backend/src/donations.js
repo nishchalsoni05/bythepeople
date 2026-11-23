@@ -33,6 +33,7 @@ export function foundationStats(id) {
     claimed: one("SELECT COUNT(*) c FROM donations WHERE claimed_by=? AND status IN ('claimed','picked_up','distributed')").c,
     distributed: one("SELECT COUNT(*) c FROM donations WHERE claimed_by=? AND status='distributed'").c,
     beneficiaries: one("SELECT COALESCE(SUM(dist_beneficiaries),0) c FROM donations WHERE claimed_by=? AND status='distributed'").c,
+    meals: one("SELECT COALESCE(SUM(servings),0) c FROM donations WHERE kind='food' AND claimed_by=? AND status IN ('claimed','picked_up','distributed')").c,
   };
 }
 
@@ -66,13 +67,16 @@ export function donationView(d, user, loc = null, detail = false) {
     preparedAt: d.prepared_at, expiresAt: d.expires_at, expiresInMinutes: left, freshness: freshness(d, t),
     lat: d.lat, lng: d.lng, address: d.address, pickupNote: d.pickup_note || '',
     media: parseJson(d.media, []), hygieneAck: !!d.hygiene_ack,
-    donor: userRef(d.donor_id), status: d.status,
+    donor: userRef(d.donor_id), donorKind: d.donor_kind || 'donor', status: d.status,
     claimedBy: d.claimed_by ? { id: d.claimed_by, name: d.claimer_org || d.claimer_name, orgName: d.claimer_org || d.claimer_name, hue: d.claimer_hue } : null,
     claimedAt: d.claimed_at, etaAt: d.eta_at, lockExpiresAt: d.lock_expires_at,
     pickedUpAt: d.picked_up_at, distributedAt: d.distributed_at,
     distribution: d.status === 'distributed'
       ? { note: d.dist_note || '', beneficiaries: d.dist_beneficiaries || 0, media: parseJson(d.dist_media, []) } : null,
-    canClaim: !!user && user.role === 'foundation' && !!user.verified && d.status === 'available' && d.expires_at > t,
+    proof: d.status === 'distributed'
+      ? { media: parseJson(d.dist_media, []), note: d.dist_note || '', beneficiaries: d.dist_beneficiaries || 0, at: d.distributed_at }
+      : null,
+    canClaim: !!user && user.role === 'foundation' && !!user.verified && d.status === 'available' && d.expires_at > t && d.donor_id !== user.id,
     claimedByMe: !!user && d.claimed_by === user.id,
     likeCount: likes, likedByMe: likedBy('donation', d.id, user),
     commentCount: commentCount('donation', d.id), shareCount: d.share_count,
@@ -172,6 +176,8 @@ export function registerDonationRoutes(app) {
   app.post('/donations', async (req, reply) => {
     const user = authUser(req);
     if (user.role === 'admin') throw new ApiError(403, 'FORBIDDEN', 'Authority accounts cannot list donations. Use a citizen or foundation account.');
+    if (user.role === 'foundation' && !user.verified) throw new ApiError(403, 'NOT_VERIFIED', 'Your foundation is awaiting verification. You can share surplus once it is approved.');
+    const donorKind = user.role === 'foundation' ? 'foundation' : 'donor';
     const b = req.body || {};
     const kind = b.kind;
     if (!DONATION_KINDS[kind]) throw new ApiError(400, 'BAD_KIND', `Pick what you are donating: ${Object.keys(DONATION_KINDS).join(', ')}`);
@@ -210,10 +216,10 @@ export function registerDonationRoutes(app) {
     } else {
       expiresAt = t + CONFIG.otherShelfDays * DAYMS;
     }
-    const info = db.prepare(`INSERT INTO donations (kind,title,description,quantity,servings,veg,prepared_at,expires_at,lat,lng,address,pickup_note,media,hygiene_ack,donor_id,status,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'available', ?)`)
+    const info = db.prepare(`INSERT INTO donations (kind,title,description,quantity,servings,veg,prepared_at,expires_at,lat,lng,address,pickup_note,media,hygiene_ack,donor_id,donor_kind,status,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'available', ?)`)
       .run(kind, title, String(b.description || '').trim(), quantity, servings, veg, preparedAt, expiresAt, loc.lat, loc.lng,
-        b.address ? String(b.address) : null, b.pickupNote ? String(b.pickupNote) : null, JSON.stringify(media), isTrue(b.hygieneAck) ? 1 : 0, user.id, t);
+        b.address ? String(b.address) : null, b.pickupNote ? String(b.pickupNote) : null, JSON.stringify(media), isTrue(b.hygieneAck) ? 1 : 0, user.id, donorKind, t);
     const id = Number(info.lastInsertRowid);
     dh(id, 'available', 'Listed for donation', user.id);
     alertFoundations(donationRow(id));
@@ -223,7 +229,12 @@ export function registerDonationRoutes(app) {
 
   app.post('/donations/:id/claim', async (req) => {
     const user = authUser(req);
-    if (user.role !== 'foundation') throw new ApiError(403, 'FOUNDATION_ONLY', 'Only verified foundations can claim donations');
+    const claimId = Number(req.params.id) || 0;
+    const surplus = db.prepare('SELECT donor_kind FROM donations WHERE id=?').get(claimId)?.donor_kind === 'foundation';
+    if (user.role !== 'foundation') {
+      if (surplus) throw new ApiError(403, 'FORBIDDEN', 'Surplus shared by foundations can only be claimed by other verified foundations');
+      throw new ApiError(403, 'FOUNDATION_ONLY', 'Only verified foundations can claim donations');
+    }
     if (!user.verified) throw new ApiError(403, 'NOT_VERIFIED', 'Your foundation is awaiting verification by the authority. You can claim once it is approved.');
     sweepDonations();
     const id = Number(req.params.id) || 0;
@@ -233,6 +244,9 @@ export function registerDonationRoutes(app) {
     }
     return tx(() => {
       const d = mustGet(id);
+      if (d.donor_kind === 'foundation' && d.donor_id === user.id) {
+        throw new ApiError(403, 'FORBIDDEN', 'Your foundation cannot claim its own surplus');
+      }
       if (d.status !== 'available') {
         if (d.status === 'expired') throw new ApiError(409, 'EXPIRED', 'This donation has expired');
         if (d.status === 'cancelled') throw new ApiError(409, 'CANCELLED', 'The donor cancelled this donation');
@@ -297,9 +311,13 @@ export function registerDonationRoutes(app) {
     sweepDonations();
     const id = Number(req.params.id) || 0;
     const b = req.body || {};
+    if (b.beneficiaries === undefined || b.beneficiaries === null || b.beneficiaries === '') {
+      throw new ApiError(400, 'BAD_REQUEST', 'Tell us how many people benefited');
+    }
     const beneficiaries = Number(b.beneficiaries);
     if (!Number.isInteger(beneficiaries) || beneficiaries < 1) throw new ApiError(400, 'BAD_BENEFICIARIES', 'Tell us how many people benefited (a whole number above zero)');
     const media = cleanMedia(b.media);
+    if (!media.length) throw new ApiError(400, 'BAD_REQUEST', 'Attach at least one photo of the delivery as proof');
     return tx(() => {
       const d = mustGet(id);
       claimerOnly(d, user, 'distribute');

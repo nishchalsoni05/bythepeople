@@ -46,8 +46,14 @@ export const DONATION_KINDS = {
   books: 'Books',
   toys: 'Toys',
   essentials: 'Essentials',
+  medicine: 'Medicine',
+  stationery: 'Stationery',
+  money: 'Money',
+  volunteers: 'Volunteers',
   other: 'Other',
 };
+
+export const NEED_URGENCY = ['low', 'normal', 'high', 'critical'];
 
 export const ROLES = ['citizen', 'admin', 'neta', 'foundation'];
 

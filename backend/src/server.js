@@ -24,6 +24,9 @@ import {
 } from './donations.js';
 import { registerCommentRoutes } from './comments.js';
 import { registerPublicRoutes } from './public.js';
+import { registerInsightRoutes } from './insights.js';
+import { registerNeedRoutes } from './needs.js';
+import { registerReminderRoutes } from './reminders.js';
 
 initSchema();
 
@@ -404,6 +407,9 @@ export function buildApp() {
   registerDonationRoutes(app);
   registerCommentRoutes(app);
   registerPublicRoutes(app);
+  registerInsightRoutes(app);
+  registerNeedRoutes(app);
+  registerReminderRoutes(app);
 
   return app;
 }

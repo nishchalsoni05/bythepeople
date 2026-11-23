@@ -75,6 +75,12 @@ export function rankFor(points) {
   };
 }
 
+// Servings of food a user has given (as donor) or taken on (as a claiming foundation/volunteer).
+export function mealsFor(userId) {
+  return db.prepare(`SELECT COALESCE(SUM(servings),0) c FROM donations
+    WHERE kind='food' AND status IN ('claimed','picked_up','distributed') AND (donor_id=? OR claimed_by=?)`).get(userId, userId).c;
+}
+
 function badgeStats(userId) {
   const one = (sql, ...p) => db.prepare(sql).get(...p).c;
   return {
@@ -93,6 +99,7 @@ function badgeStats(userId) {
     donated: one("SELECT COUNT(*) c FROM donations WHERE donor_id=? AND status='distributed'", userId),
     foodDonated: one("SELECT COUNT(*) c FROM donations WHERE donor_id=? AND status='distributed' AND kind='food'", userId),
     comments: one('SELECT COUNT(*) c FROM comments WHERE user_id=?', userId),
+    meals: mealsFor(userId),
   };
 }
 
@@ -798,7 +805,7 @@ export function userProfile(user) {
     volunteer: !!user.volunteer, alertRadiusKm: user.alert_radius_km,
     home: user.home_lat != null ? { lat: user.home_lat, lng: user.home_lng } : null,
     createdAt: user.created_at,
-    stats: { reports: s.reports, supports: s.supports, joins: s.joins, verifies: s.verifies, closedHelped: s.closedHelped },
+    stats: { reports: s.reports, supports: s.supports, joins: s.joins, verifies: s.verifies, closedHelped: s.closedHelped, meals: s.meals },
     badges: BADGES.map((b) => ({ ...b, earned: earnedMap.has(b.key), earnedAt: earnedMap.get(b.key) || null })),
   };
 }
