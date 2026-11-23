@@ -70,6 +70,17 @@
 	<string>By the People uses motion sensors so the Neta cards shimmer as you tilt your phone.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>By the People checks you are near an issue before you can report, support or join. This keeps reports honest.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos or video of a problem, a drive or a donation to attach to your post.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick photos or video from your library to attach to your post.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record sound when you capture a video to attach to your post.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>whatsapp</string>
+		<string>https</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
